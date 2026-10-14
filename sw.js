@@ -1,5 +1,5 @@
 // 改版時把版本號 +1，使用者下次開啟就會更新快取
-const CACHE = 'ledger-v6';
+const CACHE = 'ledger-v7';
 const ASSETS = ['./', 'index.html', 'tailwind.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

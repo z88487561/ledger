@@ -941,6 +941,8 @@ function switchTab(tabName) {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const todayStr = ymd();
+  const shortcutAction = new URLSearchParams(location.search).get('action');
+  if (shortcutAction === 'expense' || shortcutAction === 'income') manualType = shortcutAction;
   $('#manualDate').value = todayStr;
   $('#filterMonth').value = todayStr.slice(0, 7);
 
@@ -986,6 +988,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (e) {}
 
+  $$('.type-btn').forEach(btn => {
+    const active = btn.dataset.type === manualType;
+    btn.className = `type-btn py-2 rounded-lg text-sm font-semibold transition ${active ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`;
+  });
   renderCategoryChips();
   renderLedger();
   updateBackupUI();
@@ -1136,6 +1142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+  if (shortcutAction === 'expense' || shortcutAction === 'income') $('#manualAmount').focus({ preventScroll: true });
 });
 </script>
 <dialog id="editDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
