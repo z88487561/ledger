@@ -748,7 +748,6 @@ async function deleteCustomCategory(type, name) {
   } catch (e) { showToast('類別刪除失敗，請再試一次'); }
 }
 
-/* Render Main Ledger View */
 function renderLedger() {
   renderFrequent();
   const filterMonth = $('#filterMonth').value;
@@ -782,18 +781,18 @@ function renderLedger() {
 
     const info = document.createElement('button');
     info.type = 'button';
-    // 修正：使用 flex flex-col items-end text-right 搭配 pr-2
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-3';
+    // 強制設定寬度與靠右對齊
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pl-4 pr-2';
     info.onclick = () => openEdit(r);
 
     const title = document.createElement('div');
-    // 修正：加入 inline-block 或 text-right 確保靠右
-    title.className = 'font-semibold text-base truncate text-right';
+    title.className = 'font-semibold text-base truncate';
+    title.style.cssText = 'text-align: right; width: 100%;';
     title.textContent = r.category;
 
     const note = document.createElement('div');
-    // 修正：加入 text-right 確保備註靠右
-    note.className = 'text-sm text-slate-500 dark:text-slate-400 truncate text-right';
+    note.className = 'text-sm text-slate-500 dark:text-slate-400 truncate';
+    note.style.cssText = 'text-align: right; width: 100%;';
     note.textContent = r.note || '無備註';
 
     info.append(title, note);
@@ -828,15 +827,6 @@ function renderLedger() {
   renderRecordSearch();
 }
 
-function sortRecords(list, sort) {
-  const [key, direction] = sort.split('-');
-  return [...list].sort((a, b) => {
-    const primary = key === 'amount' ? a.amount - b.amount : a.date.localeCompare(b.date);
-    const tieBreak = b.date.localeCompare(a.date) || b.id - a.id;
-    return primary ? primary * (direction === 'asc' ? 1 : -1) : tieBreak;
-  });
-}
-
 function renderAuxRecordList(container, list, emptyText) {
   if (!list.length) {
     container.replaceChildren(createElementWithText('div', emptyText, 'text-center py-6 text-slate-400 text-sm'));
@@ -847,12 +837,19 @@ function renderAuxRecordList(container, list, emptyText) {
     row.className = 'flex items-center justify-between gap-2 py-3.5';
     const info = document.createElement('button');
     info.type = 'button';
-    // 修正：同樣套用 items-end text-right 與 pr-3
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-3';
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pl-4 pr-2';
     info.onclick = () => openEdit(r);
 
-    const category = createElementWithText('span', r.category, 'font-semibold text-base truncate text-right');
-    const note = createElementWithText('span', r.note || '無備註', 'text-sm text-slate-500 dark:text-slate-400 truncate text-right');
+    const category = document.createElement('span');
+    category.className = 'font-semibold text-base truncate';
+    category.style.cssText = 'text-align: right; width: 100%; display: block;';
+    category.textContent = r.category;
+
+    const note = document.createElement('span');
+    note.className = 'text-sm text-slate-500 dark:text-slate-400 truncate';
+    note.style.cssText = 'text-align: right; width: 100%; display: block;';
+    note.textContent = r.note || '無備註';
+
     info.append(category, note);
 
     const right = document.createElement('div');
