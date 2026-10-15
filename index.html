@@ -1003,9 +1003,8 @@ function updateAnalytics() {
   }
 
   // Trend Chart Render
-  $('#trendChartSection').classList.toggle('hidden', analyticsRange === 'all');
-  if (analyticsRange === 'all') $('#trendChartContainer').replaceChildren();
-  else renderTrendChart(items, analyticsRange);
+  $('#trendChartSection').classList.remove('hidden');
+  renderTrendChart(items, analyticsRange);
   const detailItems = sortRecords(items, $('#analyticsSort').value);
   $('#analyticsRecordCount').textContent = detailItems.length + ' 筆';
   renderAuxRecordList($('#analyticsRecordList'), detailItems, '本期尚無記帳資料');
@@ -1076,7 +1075,10 @@ function renderTrendChart(items, range) {
   items.forEach(r => {
     const [year, month, day] = r.date.split('-').map(Number);
     let key = r.date, label = r.date.slice(5);
-    if (range === 'year') {
+    if (range === 'all') {
+      key = String(year);
+      label = year + '年';
+    } else if (range === 'year') {
       key = r.date.slice(0, 7);
       label = String(month).padStart(2, '0') + '月';
     } else if (range === 'month') {
@@ -1098,7 +1100,7 @@ function renderTrendChart(items, range) {
   }
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  const groupWidth = 150;
+  const groupWidth = 100;
   const width = Math.max(dates.length * groupWidth + 20, 320);
   const height = 210;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
