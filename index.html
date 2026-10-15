@@ -995,6 +995,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderCategoryChips();
   renderLedger();
   updateBackupUI();
+  const folderSetupPrompted = await settingsGet('folderSetupPrompted');
+  const savedFolder = await settingsGet('dirHandle');
+  if (window.showDirectoryPicker && !savedFolder && !folderSetupPrompted) $('#backupSetupDlg').showModal();
 
   // Tab Listeners
   $$('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -1106,18 +1109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Export / Import
-  $('#btnExport').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `smart_accounting_backup_${todayStr}.json`;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast('備份檔案已成功匯出');
-  });
+  $('#btnExport').addEventListener('click', exportBackup);
 
   $('#btnImport').addEventListener('click', () => $('#fileInput').click());
   $('#fileInput').addEventListener('change', async e => {
@@ -1300,6 +1292,14 @@ document.addEventListener('DOMContentLoaded', () => {
     <button type="button" id="bkClose" class="px-4 py-3 rounded-xl font-semibold w-full bg-slate-100 dark:bg-slate-800">關閉</button>
   </div>
 </dialog>
+<dialog id="backupSetupDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-5 space-y-4">
+    <h3 class="font-bold">設定備份資料夾</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400">選擇資料夾後，自動備份與手動匯出的檔案都會存入其中的 backup/ 資料夾。</p>
+    <button type="button" id="bkSetupPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-teal-600 text-white">選擇資料夾</button>
+    <button type="button" id="bkSetupLater" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">稍後設定</button>
+  </div>
+</dialog>
 <dialog id="preferencesDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
   <div class="p-4 space-y-4">
     <div class="flex items-center justify-between">
@@ -1331,7 +1331,7 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </dialog>
 <script>
-let needPerm = false, bkTimer = null, persistAsked = false;
+let needPerm = false, bkTimer = null, persistAsked = false, backupHandle = null;
 const settingsGet = k => dbTx('settings', 'readonly', s => s.get(k));
 const settingsPut = o => dbTx('settings', 'readwrite', s => s.put(o));
 
@@ -1356,7 +1356,8 @@ async function writeFolder(data, day) {
   try {
     const rec = await settingsGet('dirHandle');
     if (!rec) return false;
-    if (await rec.handle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
+    backupHandle = rec.handle;
+    if (await backupHandle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
     needPerm = false;
     const bd = await rec.handle.getDirectoryHandle('backup', { create: true });
     const put = async (name, text) => { const w = await (await bd.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
@@ -1372,8 +1373,12 @@ async function writeFolder(data, day) {
 async function pickFolder() {
   try {
     const h = await showDirectoryPicker({ mode: 'readwrite' });
+    backupHandle = h;
     await settingsPut({ key: 'dirHandle', handle: h });
-    needPerm = false; await runBackup(); showToast('已設定備份資料夾，之後每次記帳會自動寫入 backup/');
+    needPerm = false;
+    await settingsPut({ key: 'folderSetupPrompted', shown: true });
+    $('#backupSetupDlg').close();
+    await runBackup(); showToast('已設定備份資料夾，自動備份與匯出檔案會寫入 backup/');
   } catch (e) { if (e.name !== 'AbortError') showToast('無法使用這個資料夾，請改選其他資料夾'); }
   updateBackupUI();
 }
@@ -1384,16 +1389,63 @@ async function regrant() {
   } catch (e) {}
   updateBackupUI();
 }
+async function getBackupDirectory(selectIfMissing, requestPermission) {
+  if (!window.showDirectoryPicker) return null;
+  try {
+    if (!backupHandle) {
+      if (!selectIfMissing) return null;
+      backupHandle = await showDirectoryPicker({ mode: 'readwrite' });
+      await settingsPut({ key: 'dirHandle', handle: backupHandle });
+      await settingsPut({ key: 'folderSetupPrompted', shown: true });
+    }
+    let permission = await backupHandle.queryPermission({ mode: 'readwrite' });
+    if (permission !== 'granted' && requestPermission) permission = await backupHandle.requestPermission({ mode: 'readwrite' });
+    if (permission !== 'granted') { needPerm = true; return null; }
+    needPerm = false;
+    return await backupHandle.getDirectoryHandle('backup', { create: true });
+  } catch (e) { if (e.name !== 'AbortError') needPerm = true; return null; }
+}
+
+function downloadExport(file) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a'); a.href = url; a.download = file.name;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function writeExport(file) {
+  const dir = await getBackupDirectory(true, true);
+  if (!dir) return false;
+  try {
+    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
+    await writable.write(file); await writable.close();
+    return true;
+  } catch (e) { return false; }
+}
+
+async function exportBackup() {
+  const file = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
+  const saved = await writeExport(file);
+  if (!saved) downloadExport(file);
+  await markExport();
+  updateBackupUI();
+  showToast(saved ? '備份已儲存至備份資料夾' : '無法寫入備份資料夾，已改為下載');
+}
+
 async function exportShare() {
   const file = new File([JSON.stringify(records, null, 2)], 'accounting_backup_' + ymd() + '.json', { type: 'application/json' });
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: '記帳備份' });
-    else {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
-      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }
-  } catch (e) { if (e.name === 'AbortError') return; }
-  markExport();
+  let sharePromise = null;
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { sharePromise = navigator.share({ files: [file], title: '記帳備份' }).then(() => ({ shared: true }), error => ({ error })); }
+    catch (error) { sharePromise = Promise.resolve({ error }); }
+  }
+  const saved = await writeExport(file);
+  if (!saved) downloadExport(file);
+  await markExport();
+  const shareResult = sharePromise && await sharePromise;
+  if (shareResult && shareResult.error && shareResult.error.name === 'AbortError') { showToast(saved ? '備份已儲存，已取消分享' : '已下載備份，已取消分享'); return; }
+  updateBackupUI();
+  if (shareResult && shareResult.shared) showToast(saved ? '備份已儲存並開啟分享' : '已開啟分享；備份資料夾無法寫入，另已下載');
+  else showToast(saved ? '備份已儲存；此瀏覽器不支援檔案分享' : '此瀏覽器不支援檔案分享，已下載備份');
 }
 
 function buildCSV(list) {
@@ -1403,12 +1455,13 @@ function buildCSV(list) {
     .forEach(r => rows.push([r.date, r.type === 'income' ? '收入' : '支出', esc(r.category), r.amount, esc(r.note)]));
   return '\uFEFF' + rows.map(r => r.join(',')).join('\r\n');
 }
-function exportCSV() {
+async function exportCSV() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([buildCSV(records)], { type: 'text/csv;charset=utf-8' }));
-  a.download = 'accounting_' + ymd() + '.csv';
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  const file = new File([buildCSV(records)], 'accounting_' + ymd() + '.csv', { type: 'text/csv;charset=utf-8' });
+  const saved = await writeExport(file);
+  if (!saved) downloadExport(file);
+  updateBackupUI();
+  showToast(saved ? 'CSV 已儲存至備份資料夾' : '無法寫入備份資料夾，已改為下載');
 }
 
 async function restoreSnap(snap) {
@@ -1423,6 +1476,7 @@ async function restoreSnap(snap) {
 async function updateBackupUI() {
   const le = ((await settingsGet('lastExport')) || {}).at || 0;
   const rec = await settingsGet('dirHandle');
+  backupHandle = rec && rec.handle || null;
   const reminderSetting = await settingsGet('backupReminderDays');
   const reminderValue = Number(reminderSetting && reminderSetting.days);
   const reminderDays = Number.isInteger(reminderValue) && reminderValue >= 1 && reminderValue <= 365 ? reminderValue : 3;
@@ -1449,6 +1503,8 @@ async function updateBackupUI() {
 }
 document.addEventListener('DOMContentLoaded', () => {
   $('#btnBackup').onclick = async () => { await updateBackupUI(); $('#backupDlg').showModal(); };
+  $('#bkSetupPick').onclick = pickFolder;
+  $('#bkSetupLater').onclick = async () => { await settingsPut({ key: 'folderSetupPrompted', shown: true }); $('#backupSetupDlg').close(); };
   $('#bkSaveReminder').onclick = async () => {
     const days = Number($('#backupReminderDays').value);
     if (!Number.isInteger(days) || days < 1 || days > 365) return showToast('請輸入 1 到 365 天');
@@ -1457,7 +1513,6 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('備份提醒已設為 ' + days + ' 天');
   };
   $('#btnClearRecords').onclick = clearAllRecords;
-  $('#btnExport').addEventListener('click', markExport);
   $('#bkShare').onclick = exportShare; $('#bkCsv').onclick = exportCSV; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
 });
 </script>
