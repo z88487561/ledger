@@ -410,21 +410,62 @@
 
 /* ---------- NLP Parser Engine ---------- */
 const KEYWORDS = {
-  expense: [
-    ['餐飲', ['早餐','午餐','晚餐','宵夜','飲料','咖啡','便當','手搖','餐','吃','火鍋','燒肉','麥當勞','壽司']],
-    ['交通', ['捷運','公車','火車','高鐵','台鐵','計程車','uber','加油','停車','悠遊卡','機車','客運','過路費','高鐵']],
-    ['日用品', ['日用','衛生紙','洗衣','洗髮','牙膏','超市','全聯','家樂福','costco','好市多','屈臣氏']],
-    ['購物', ['衣','鞋','蝦皮','momo','網購','購物','包包','3c','電腦','手機']],
-    ['娛樂', ['電影','遊戲','娛樂','ktv','netflix','spotify','訂閱','演唱會','旅遊','門票']],
-    ['居住', ['房租','租金','水費','電費','瓦斯','網路費','管理費','電話費','房貸']],
-    ['醫療', ['醫','診所','藥','掛號','醫院','牙醫','保健']],
-    ['學習', ['書','課','學費','補習','考試','課程']]
+expense: [
+    ['餐飲', [
+      '早餐', '午餐', '晚餐', '消夜', '飲料', '點心', '咖啡', '便當', '手搖', '餐', '吃', 
+      '火鍋', '燒肉', '麥當勞', '壽司', '臭豆腐', '伙食費', '飯', '麵', '小吃', 
+      '鹹酥雞', '珍奶', '手搖飲', '自助餐', '早午餐', '下午茶', '外送', 'ubereats', 
+      'foodpanda', '全家', '7-11', '萊爾富', 'ok超商', '超商', '咖啡廳', '餐廳'
+    ]],
+    ['交通', [
+      '捷運', '公車', '火車', '高鐵', '台鐵', '計程車', 'uber', '加油', '停車', 
+      '悠遊卡', '機車', '客運', '過路費', 'ubike', 'youbike', '租車', 'iRent', 
+      '共享機車', 'gogoro', '台鐵', '高鐵', '捷運', '高捷', '北捷', '加油站', 
+      'e-tag', 'etag', '停車費', '拖吊'
+    ]],
+    ['日用品', [
+      '日用', '衛生紙', '洗衣', '洗髮', '牙膏', '超市', '全聯', '家樂福', 'costco', 
+      '好市多', '屈臣氏', '康是美', '寶雅', 'poya', '全聯福利中心', '頂好', '美廉社', 
+      '大潤發', '清潔', '沐浴乳', '洗面乳', '垃圾袋', '頭髮', 'ikea'
+    ]],
+    ['購物', [
+      '衣', '鞋', '蝦皮', 'momo', '網購', '購物', '包包', '3c', '電腦', '手機', 
+      'pchome', 'yahoo', '淘寶', 'coupang', '酷澎', '服飾', '衣服', '褲子', 
+      '眼鏡', '彩妝', '保養品', '百貨公司', 'sogo', '新光三越', '遠百', 'outlet', '思夢樂', '無印', '工具'
+    ]],
+    ['娛樂', [
+      '電影', '遊戲', '娛樂', 'ktv', 'netflix', 'spotify', '訂閱', '演唱會', 
+      '旅遊', '門票', 'steam', 'app store', 'google play', 'youtube', '迪士尼', 
+      'apple music', '露營', '溫泉', '展覽', '景點', '住宿', '飯店', '民宿'
+    ]],
+    ['居住', [
+      '房租', '租金', '水費', '電費', '瓦斯', '網路費', '管理費', '電話費', '房貸', 
+      '台電', '自來水', '瓦斯費', '中華電信', '台灣大哥大', '遠傳', '亞太', '台灣之星', 
+      'ibon', '第四台', '裝潢', '傢俱', '修繕'
+    ]],
+    ['醫療', [
+      '醫', '診所', '藥', '掛號', '醫院', '牙醫', '保健', '藥局', '健保', '健檢', 
+      '中醫', '西醫', '物理治療', '口罩', '維維', '維他命', '保健食品', '感冒', '發燒', '耳鼻', '生病', '紗布'
+    ]],
+    ['學習', [
+      '書', '課', '學費', '補習', '考試', '課程', '誠品', '金石堂', '博客來', 
+      '多益', '托福', '駕訓班', '線上課程', 'udemy', 'hahow'
+    ]]
   ],
   income: [
-    ['薪資', ['薪水','薪資','月薪','工資','底薪']],
-    ['獎金', ['獎金','年終','紅利']],
-    ['投資', ['股利','股息','配息','利息','投資','比特幣']],
-    ['兼職', ['兼職','接案','外快','打工','稿費']]
+    ['薪資', [
+      '薪水', '薪資', '月薪', '工資', '底薪', '年薪', '兼職薪資'
+    ]],
+    ['獎金', [
+      '獎金', '年終', '紅利', '績效獎金', '三節', '分紅'
+    ]],
+    ['投資', [
+      '股利', '股息', '配息', '利息', '投資', '比特幣', '股票', '基金', 
+      '美股', '台股', 'etf', '手續費退佣', '中獎', '發票中獎'
+    ]],
+    ['兼職', [
+      '兼職', '接案', '外快', '打工', '稿費', '家教', '諮詢費', '通告費'
+    ]]
   ]
 };
 
@@ -741,7 +782,7 @@ function renderLedger() {
 
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right';
     info.onclick = () => openEdit(r);
     const title = document.createElement('div');
     title.className = 'w-full font-semibold text-base truncate';
@@ -802,7 +843,7 @@ function renderAuxRecordList(container, list, emptyText) {
     row.className = 'flex items-center justify-between gap-2 py-3.5';
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right';
     info.onclick = () => openEdit(r);
     const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate');
     const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
