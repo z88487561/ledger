@@ -782,14 +782,18 @@ function renderLedger() {
 
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right';
+    // 調整：確保 flex 項目方向與文字均靠右對齊 (text-right items-end)
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-2';
     info.onclick = () => openEdit(r);
+
     const title = document.createElement('div');
-    title.className = 'w-full font-semibold text-base truncate';
+    // 調整：加入 text-right 確保文字靠右對齊
+    title.className = 'w-full font-semibold text-base truncate text-right';
     title.textContent = r.category;
 
     const note = document.createElement('div');
-    note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate';
+    // 調整：加入 text-right 確保備註靠右對齊
+    note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate text-right';
     note.textContent = r.note || '無備註';
 
     info.append(title, note);
@@ -843,11 +847,15 @@ function renderAuxRecordList(container, list, emptyText) {
     row.className = 'flex items-center justify-between gap-2 py-3.5';
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right';
+    // 調整：靠右排版 (items-end text-right)
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-2';
     info.onclick = () => openEdit(r);
-    const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate');
-    const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
+
+    // 調整：類別與備註加上 text-right
+    const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate text-right');
+    const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate text-right');
     info.append(category, note);
+
     const right = document.createElement('div');
     right.className = 'flex items-center gap-2 flex-none';
     const amountDate = document.createElement('div');
