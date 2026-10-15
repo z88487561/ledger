@@ -940,6 +940,9 @@ function switchTab(tabName) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  $('#btnBackup').disabled = true;
+  $('#btnExport').disabled = true;
+  $('#btnImport').disabled = true;
   const todayStr = ymd();
   const shortcutAction = new URLSearchParams(location.search).get('action');
   if (shortcutAction === 'expense' || shortcutAction === 'income') manualType = shortcutAction;
@@ -994,9 +997,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   renderCategoryChips();
   renderLedger();
-  updateBackupUI();
+  await updateBackupUI();
   const folderSetupPrompted = await settingsGet('folderSetupPrompted');
   const savedFolder = await settingsGet('dirHandle');
+  $('#btnBackup').disabled = false;
+  $('#btnExport').disabled = false;
+  $('#btnImport').disabled = false;
   if (window.showDirectoryPicker && !savedFolder && !folderSetupPrompted) $('#backupSetupDlg').showModal();
 
   // Tab Listeners
@@ -1339,7 +1345,7 @@ function scheduleBackup() { clearTimeout(bkTimer); bkTimer = setTimeout(runBacku
 async function markExport() { await settingsPut({ key: 'lastExport', at: Date.now() }); updateBackupUI(); }
 
 async function runBackup() {
-  if (!records.length) return;
+  if (!records.length) return null;
   const day = ymd(), data = JSON.stringify(records, null, 2);
   try {
     await settingsPut({ key: 'snap:' + day, data: records });
@@ -1348,7 +1354,9 @@ async function runBackup() {
     if (old.length) await dbTx('settings', 'readwrite', s => { old.forEach(k => s.delete(k)); });
     if (!persistAsked && navigator.storage && navigator.storage.persist) { persistAsked = true; navigator.storage.persist().catch(() => {}); }
   } catch (e) {}
-  if (await writeFolder(data, day)) await markExport(); else updateBackupUI();
+  const written = await writeFolder(data, day);
+  if (written) await markExport(); else updateBackupUI();
+  return written;
 }
 
 async function writeFolder(data, day) {
@@ -1359,13 +1367,12 @@ async function writeFolder(data, day) {
     backupHandle = rec.handle;
     if (await backupHandle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
     needPerm = false;
-    const bd = await rec.handle.getDirectoryHandle('backup', { create: true });
-    const put = async (name, text) => { const w = await (await bd.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
+    const put = async (name, text) => { const w = await (await backupHandle.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
     await put('ledger-latest.json', data);
     await put('ledger-' + day + '.json', data);
     const cut = ymd(new Date(Date.now() - 6 * 864e5)), names = [];
-    for await (const [name] of bd.entries()) names.push(name);
-    for (const n of names) { const m = n.match(/^ledger-(\d{4}-\d{2}-\d{2})\.json$/); if (m && m[1] < cut) await bd.removeEntry(n); }
+    for await (const [name] of backupHandle.entries()) names.push(name);
+    for (const n of names) { const m = n.match(/^ledger-(\d{4}-\d{2}-\d{2})\.json$/); if (m && m[1] < cut) await backupHandle.removeEntry(n); }
     return true;
   } catch (e) { return false; }
 }
@@ -1378,7 +1385,9 @@ async function pickFolder() {
     needPerm = false;
     await settingsPut({ key: 'folderSetupPrompted', shown: true });
     $('#backupSetupDlg').close();
-    await runBackup(); showToast('已設定備份資料夾，自動備份與匯出檔案會寫入 backup/');
+    const hadRecords = records.length > 0;
+    const written = await runBackup();
+    showToast(!hadRecords || written ? '已設定資料夾，自動備份與匯出檔案會直接存入此資料夾' : '資料夾已設定，但備份寫入失敗；請確認資料夾權限');
   } catch (e) { if (e.name !== 'AbortError') showToast('無法使用這個資料夾，請改選其他資料夾'); }
   updateBackupUI();
 }
@@ -1402,7 +1411,7 @@ async function getBackupDirectory(selectIfMissing, requestPermission) {
     if (permission !== 'granted' && requestPermission) permission = await backupHandle.requestPermission({ mode: 'readwrite' });
     if (permission !== 'granted') { needPerm = true; return null; }
     needPerm = false;
-    return await backupHandle.getDirectoryHandle('backup', { create: true });
+    return backupHandle;
   } catch (e) { if (e.name !== 'AbortError') needPerm = true; return null; }
 }
 
@@ -1433,19 +1442,33 @@ async function exportBackup() {
 
 async function exportShare() {
   const file = new File([JSON.stringify(records, null, 2)], 'accounting_backup_' + ymd() + '.json', { type: 'application/json' });
-  let sharePromise = null;
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { sharePromise = navigator.share({ files: [file], title: '記帳備份' }).then(() => ({ shared: true }), error => ({ error })); }
-    catch (error) { sharePromise = Promise.resolve({ error }); }
-  }
-  const saved = await writeExport(file);
-  if (!saved) downloadExport(file);
+  const canShare = navigator.canShare && navigator.canShare({ files: [file] });
+  const sharePromise = canShare ? navigator.share({ files: [file], title: '記帳備份' }) : null;
+  const saved = await writeSavedExport(file);
   await markExport();
-  const shareResult = sharePromise && await sharePromise;
-  if (shareResult && shareResult.error && shareResult.error.name === 'AbortError') { showToast(saved ? '備份已儲存，已取消分享' : '已下載備份，已取消分享'); return; }
+  if (sharePromise) {
+    try {
+      await sharePromise;
+      updateBackupUI();
+      showToast(saved ? '備份已存入資料夾並成功分享' : '分享已送出，但備份資料夾無法寫入');
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') { showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享'); return; }
+      showToast('分享失敗，已改為下載備份');
+    }
+  } else showToast('此瀏覽器不支援檔案分享，已改為下載備份');
+  downloadExport(file);
   updateBackupUI();
-  if (shareResult && shareResult.shared) showToast(saved ? '備份已儲存並開啟分享' : '已開啟分享；備份資料夾無法寫入，另已下載');
-  else showToast(saved ? '備份已儲存；此瀏覽器不支援檔案分享' : '此瀏覽器不支援檔案分享，已下載備份');
+}
+
+async function writeSavedExport(file) {
+  const dir = await getBackupDirectory(false, false);
+  if (!dir) return false;
+  try {
+    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
+    await writable.write(file); await writable.close();
+    return true;
+  } catch (e) { return false; }
 }
 
 function buildCSV(list) {
@@ -1491,7 +1514,7 @@ async function updateBackupUI() {
   else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = '匯出並分享'; btn.onclick = exportShare; }
   $('#bkStatus').textContent = '最近一次外部備份：' + (le ? new Date(le).toLocaleString('zh-TW') : '尚未備份');
   $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「匯出並分享」備份。'
-    : rec ? '已設定備份資料夾（backup/，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
+    : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
   $('#bkPick').classList.toggle('hidden', !window.showDirectoryPicker);
   const snaps = ((await dbTx('settings', 'readonly', s => s.getAll())) || []).filter(o => String(o.key).startsWith('snap:')).sort((a, b) => a.key < b.key ? 1 : -1);
   $('#bkSnaps').replaceChildren(...(snaps.length ? snaps.map(sn => {
