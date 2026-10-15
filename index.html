@@ -1098,32 +1098,31 @@ function renderTrendChart(items, range) {
   }
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  const width = Math.max(dates.length * 82 + 20, 320);
-  const height = 180;
+  const groupWidth = 150;
+  const width = Math.max(dates.length * groupWidth + 20, 320);
+  const height = 210;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  svg.setAttribute('class', 'h-44 flex-none');
+  svg.setAttribute('class', 'flex-none');
   svg.style.width = width + 'px';
+  svg.style.height = height + 'px';
 
   const maxVal = Math.max(...Object.values(dateMap).map(d => Math.max(d.inc, d.exp)), 100);
-  const chartHeight = 105;
-  const compactAmount = amount => amount >= 10000 ? '$' + (amount / 10000).toFixed(1) + '萬'
-    : amount >= 1000 ? '$' + (amount / 1000).toFixed(1) + '千' : fmt(amount);
-  const appendAmountLabel = (x, y, amount, period, type) => {
-    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    label.setAttribute('x', x);
-    label.setAttribute('y', Math.max(12, y));
-    label.setAttribute('text-anchor', 'middle');
-    label.setAttribute('font-size', '8');
-    label.setAttribute('fill', type === 'income' ? '#047857' : '#c2410c');
-    label.textContent = compactAmount(amount);
-    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-    title.textContent = period + (type === 'income' ? ' 收入' : ' 支出') + '總額：' + fmt(amount);
-    label.append(title);
-    svg.append(label);
+  const chartHeight = 100;
+  const chartBottom = 122;
+  const appendTotalLabel = (x, y, labelText, amount, type) => {
+    const amountLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    amountLabel.setAttribute('x', x);
+    amountLabel.setAttribute('y', y);
+    amountLabel.setAttribute('text-anchor', 'middle');
+    amountLabel.setAttribute('font-size', '9');
+    amountLabel.setAttribute('fill', type === 'income' ? '#047857' : '#c2410c');
+    amountLabel.textContent = labelText + ' ' + fmt(amount);
+    svg.append(amountLabel);
   };
 
   dates.forEach((d, i) => {
-    const x = 25 + i * 82;
+    const x = 10 + i * groupWidth;
+    const center = x + groupWidth / 2;
     const data = dateMap[d];
     const incH = (data.inc / maxVal) * chartHeight;
     const expH = (data.exp / maxVal) * chartHeight;
@@ -1131,9 +1130,9 @@ function renderTrendChart(items, range) {
     // Income bar
     if (data.inc > 0) {
       const rectInc = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rectInc.setAttribute('x', x);
-      rectInc.setAttribute('y', height - 35 - incH);
-      rectInc.setAttribute('width', '8');
+      rectInc.setAttribute('x', center - 10);
+      rectInc.setAttribute('y', chartBottom - incH);
+      rectInc.setAttribute('width', '9');
       rectInc.setAttribute('height', incH);
       rectInc.setAttribute('rx', '4');
       rectInc.setAttribute('class', 'fill-emerald-500');
@@ -1141,15 +1140,14 @@ function renderTrendChart(items, range) {
       title.textContent = labels[d] + ' 收入：' + fmt(data.inc);
       rectInc.append(title);
       svg.append(rectInc);
-      appendAmountLabel(x + 4, height - 35 - incH - 5, data.inc, labels[d], 'income');
     }
 
     // Expense bar
     if (data.exp > 0) {
       const rectExp = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rectExp.setAttribute('x', x + 28);
-      rectExp.setAttribute('y', height - 35 - expH);
-      rectExp.setAttribute('width', '8');
+      rectExp.setAttribute('x', center + 1);
+      rectExp.setAttribute('y', chartBottom - expH);
+      rectExp.setAttribute('width', '9');
       rectExp.setAttribute('height', expH);
       rectExp.setAttribute('rx', '4');
       rectExp.setAttribute('class', 'fill-orange-500');
@@ -1157,17 +1155,18 @@ function renderTrendChart(items, range) {
       title.textContent = labels[d] + ' 支出：' + fmt(data.exp);
       rectExp.append(title);
       svg.append(rectExp);
-      appendAmountLabel(x + 32, height - 35 - expH - 5, data.exp, labels[d], 'expense');
     }
 
     // Date Label
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', x + 20);
-    text.setAttribute('y', height - 15);
+    text.setAttribute('x', center);
+    text.setAttribute('y', 143);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('class', 'text-[10px] fill-slate-400');
     text.textContent = labels[d];
     svg.append(text);
+    appendTotalLabel(center, 163, '支出', data.exp, 'expense');
+    appendTotalLabel(center, 181, '收入', data.inc, 'income');
   });
 
   container.replaceChildren(svg);
