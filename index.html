@@ -177,7 +177,7 @@
   </div>
 </header>
 
-<main class="max-w-2xl w-full mx-auto px-4 py-4 flex-1 space-y-4 mb-16">
+<main id="appMain" class="max-w-2xl w-full mx-auto px-4 py-4 flex-1 space-y-4 mb-16" style="touch-action: pan-y">
 
   <div id="backupBanner" class="hidden flex items-center justify-between gap-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-sm"><span id="bannerText"></span><button type="button" id="bannerBtn" class="flex-none px-3 py-1.5 rounded-xl bg-amber-500 text-white font-semibold">立即備份</button></div>
 
@@ -255,6 +255,13 @@
       <!-- List Container -->
       <div id="recordList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     </section>
+
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <label for="recordSearch" class="block text-sm font-semibold">搜尋所有記帳資料</label>
+      <input id="recordSearch" type="search" autocomplete="off" placeholder="日期、類別、備註或金額" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+      <p id="recordSearchSummary" aria-live="polite" class="text-xs text-slate-400">輸入關鍵字搜尋所有紀錄</p>
+      <div id="recordSearchResults" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    </section>
   </div>
 
   <!-- ==================== VIEW 2: ANALYTICS & CHARTS ==================== -->
@@ -302,10 +309,24 @@
 
     <!-- Trend / Bar Chart Card -->
     <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-      <h3 class="font-bold text-sm">趨勢收支對比圖表</h3>
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="font-bold text-sm">趨勢收支對比圖表</h3>
+        <div class="flex items-center gap-3 text-xs text-slate-500">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>收入</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-orange-500"></span>支出</span>
+        </div>
+      </div>
       <div id="trendChartContainer" class="w-full overflow-x-auto py-2">
         <!-- SVG Trend Chart injected via JS -->
       </div>
+    </section>
+
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="font-bold text-sm">本期詳細記帳資料</h3>
+        <span id="analyticsRecordCount" class="text-xs text-slate-400"></span>
+      </div>
+      <div id="analyticsRecordList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     </section>
   </div>
 
@@ -572,6 +593,7 @@ function renderLedger() {
     empty.className = 'text-center py-12 text-slate-400 text-sm space-y-1';
     empty.append('尚無記帳紀錄，試試上方智慧輸入吧！');
     listEl.replaceChildren(empty);
+    renderRecordSearch();
     return;
   }
 
@@ -622,6 +644,60 @@ function renderLedger() {
   });
 
   listEl.replaceChildren(...nodes);
+  renderRecordSearch();
+}
+
+function renderAuxRecordList(container, list, emptyText) {
+  if (!list.length) {
+    container.replaceChildren(createElementWithText('div', emptyText, 'text-center py-6 text-slate-400 text-sm'));
+    return;
+  }
+  const nodes = list.map(r => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2 py-3';
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'flex items-center gap-3 min-w-0 flex-1 text-left';
+    info.onclick = () => openEdit(r);
+    const icon = document.createElement('span');
+    icon.className = 'w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-none';
+    icon.textContent = iconFor(r.type, r.category);
+    const text = document.createElement('span');
+    text.className = 'min-w-0';
+    const category = createElementWithText('span', r.category, 'block font-semibold text-sm truncate');
+    const meta = createElementWithText('span', r.date + (r.note ? ' · ' + r.note : ''), 'block text-xs text-slate-400 truncate');
+    text.append(category, meta);
+    info.append(icon, text);
+    const right = document.createElement('div');
+    right.className = 'flex items-center gap-2 flex-none';
+    const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-sm tabular-nums ' + (r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'text-slate-400 hover:text-orange-500 p-2 rounded-lg';
+    remove.title = '刪除紀錄';
+    remove.setAttribute('aria-label', '刪除 ' + r.category + ' ' + fmt(r.amount));
+    remove.textContent = '×';
+    remove.onclick = () => deleteRecord(r);
+    right.append(amount, remove);
+    row.append(info, right);
+    return row;
+  });
+  container.replaceChildren(...nodes);
+}
+
+function renderRecordSearch() {
+  const query = $('#recordSearch').value.trim().toLocaleLowerCase();
+  const results = $('#recordSearchResults');
+  if (!query) {
+    $('#recordSearchSummary').textContent = '輸入關鍵字搜尋所有紀錄';
+    results.replaceChildren();
+    return;
+  }
+  const matches = records.filter(r => [r.date, r.type === 'income' ? '收入' : '支出', r.category, r.amount, r.note]
+    .join(' ').toLocaleLowerCase().includes(query))
+    .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+  $('#recordSearchSummary').textContent = `找到 ${matches.length} 筆符合「${$('#recordSearch').value.trim()}」的紀錄`;
+  renderAuxRecordList(results, matches, '沒有符合的記帳資料');
 }
 
 async function deleteRecord(r) {
@@ -735,7 +811,10 @@ function updateAnalytics() {
   }
 
   // Trend Chart Render
-  renderTrendChart(items);
+  renderTrendChart(items, analyticsRange);
+  const detailItems = [...items].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+  $('#analyticsRecordCount').textContent = detailItems.length + ' 筆';
+  renderAuxRecordList($('#analyticsRecordList'), detailItems, '本期尚無記帳資料');
 }
 
 function createElementWithText(tag, text, className) {
@@ -796,13 +875,26 @@ function createDonutSVG(sortedCats, total, colors) {
   return svg;
 }
 
-function renderTrendChart(items) {
+function renderTrendChart(items, range) {
   const container = $('#trendChartContainer');
   const dateMap = {};
+  const labels = {};
   items.forEach(r => {
-    if (!dateMap[r.date]) dateMap[r.date] = { inc: 0, exp: 0 };
-    if (r.type === 'income') dateMap[r.date].inc += r.amount;
-    else dateMap[r.date].exp += r.amount;
+    const [year, month, day] = r.date.split('-').map(Number);
+    let key = r.date, label = r.date.slice(5);
+    if (range === 'year') {
+      key = r.date.slice(0, 7);
+      label = String(month).padStart(2, '0') + '月';
+    } else if (range === 'month') {
+      const firstDayOffset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+      const week = Math.floor((day - 1 + firstDayOffset) / 7) + 1;
+      key = r.date.slice(0, 7) + '-W' + week;
+      label = '第' + week + '週';
+    }
+    if (!dateMap[key]) dateMap[key] = { inc: 0, exp: 0 };
+    labels[key] = label;
+    if (r.type === 'income') dateMap[key].inc += r.amount;
+    else dateMap[key].exp += r.amount;
   });
 
   const dates = Object.keys(dateMap).sort();
@@ -857,7 +949,7 @@ function renderTrendChart(items) {
     text.setAttribute('y', height - 15);
     text.setAttribute('text-anchor', 'middle');
     text.setAttribute('class', 'text-[10px] fill-slate-400');
-    text.textContent = d.slice(5); // MM-DD
+    text.textContent = labels[d];
     svg.append(text);
   });
 
@@ -1007,6 +1099,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Tab Listeners
   $$('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  const tabOrder = ['record', 'analytics', 'budget'];
+  const appMain = $('#appMain');
+  let swipeStart = null, suppressGestureClickUntil = 0;
+  appMain.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) { swipeStart = null; return; }
+    const target = e.target instanceof Element ? e.target : null;
+    if (target && target.closest('input, textarea, select, button, [contenteditable="true"], #trendChartContainer')) { swipeStart = null; return; }
+    swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  appMain.addEventListener('touchend', e => {
+    if (!swipeStart || e.changedTouches.length !== 1) { swipeStart = null; return; }
+    const dx = e.changedTouches[0].clientX - swipeStart.x;
+    const dy = e.changedTouches[0].clientY - swipeStart.y;
+    swipeStart = null;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    const next = tabOrder.indexOf(currentTab) + (dx < 0 ? 1 : -1);
+    if (next < 0 || next >= tabOrder.length) return;
+    suppressGestureClickUntil = Date.now() + 500;
+    switchTab(tabOrder[next]);
+  }, { passive: true });
+  appMain.addEventListener('click', e => {
+    if (Date.now() < suppressGestureClickUntil) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
 
   // Manual Type Toggle
   $$('.type-btn').forEach(btn => btn.addEventListener('click', () => {
@@ -1077,6 +1192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Filter List Events
   $('#filterMonth').addEventListener('change', renderLedger);
+  $('#recordSearch').addEventListener('input', renderRecordSearch);
   $('#btnShowAll').addEventListener('click', () => { $('#filterMonth').value = ''; renderLedger(); });
 
   // Analytics Range Switchers
@@ -1441,23 +1557,34 @@ async function exportBackup() {
 }
 
 async function exportShare() {
-  const file = new File([JSON.stringify(records, null, 2)], 'accounting_backup_' + ymd() + '.json', { type: 'application/json' });
-  const canShare = navigator.canShare && navigator.canShare({ files: [file] });
-  const sharePromise = canShare ? navigator.share({ files: [file], title: '記帳備份' }) : null;
-  const saved = await writeSavedExport(file);
-  await markExport();
-  if (sharePromise) {
-    try {
-      await sharePromise;
-      updateBackupUI();
-      showToast(saved ? '備份已存入資料夾並成功分享' : '分享已送出，但備份資料夾無法寫入');
-      return;
-    } catch (e) {
-      if (e.name === 'AbortError') { showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享'); return; }
-      showToast('分享失敗，已改為下載備份');
+  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv;charset=utf-8' });
+  const jsonBackup = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
+  let sharePromise = null;
+  try {
+    if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+      sharePromise = navigator.share({ files: [file], title: '記帳備份 CSV' })
+        .then(() => ({ shared: true }), error => ({ error }));
     }
-  } else showToast('此瀏覽器不支援檔案分享，已改為下載備份');
+  } catch (e) {}
+  const saved = await writeSavedExport(jsonBackup);
+  if (sharePromise) {
+    const result = await sharePromise;
+    if (result.shared) {
+      await markExport();
+      updateBackupUI();
+      showToast(saved ? 'CSV 已分享，JSON 備份已存入資料夾' : 'CSV 已分享，但 JSON 備份資料夾寫入失敗');
+      return;
+    } else {
+      if (result.error.name === 'AbortError') {
+        if (saved) await markExport();
+        showToast(saved ? 'JSON 備份已存入資料夾，已取消分享' : '已取消分享');
+        return;
+      }
+      showToast('分享失敗，已改為下載 CSV');
+    }
+  } else showToast('此瀏覽器不支援檔案分享，已改為下載 CSV');
   downloadExport(file);
+  await markExport();
   updateBackupUI();
 }
 
