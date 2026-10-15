@@ -166,11 +166,8 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
       </button>
       <button id="btnBackup" title="資料管理" aria-label="資料管理" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-lg leading-none">🗂️</button>
-      <button id="btnExport" title="匯出備份" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-      </button>
-      <button id="btnImport" title="匯入備份" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+      <button id="btnSearch" type="button" title="搜尋記帳資料" aria-label="搜尋記帳資料" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-4-4"/></svg>
       </button>
       <input id="fileInput" type="file" accept=".json,application/json" class="hidden">
     </div>
@@ -182,7 +179,7 @@
   <div id="backupBanner" class="hidden flex items-center justify-between gap-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-sm"><span id="bannerText"></span><button type="button" id="bannerBtn" class="flex-none px-3 py-1.5 rounded-xl bg-amber-500 text-white font-semibold">立即備份</button></div>
 
   <!-- Tab Navigation -->
-  <nav class="flex p-1 bg-slate-200/70 dark:bg-slate-900 rounded-2xl text-sm font-medium">
+  <nav id="mainTabNav" class="flex p-1 bg-slate-200/70 dark:bg-slate-900 rounded-2xl text-sm font-medium">
     <button type="button" data-tab="record" class="tab-btn flex-1 py-2.5 rounded-xl transition shadow-sm bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 font-semibold">記帳明細</button>
     <button type="button" data-tab="analytics" class="tab-btn flex-1 py-2.5 rounded-xl transition text-slate-600 dark:text-slate-400">數據圖表</button>
     <button type="button" data-tab="budget" class="tab-btn flex-1 py-2.5 rounded-xl transition text-slate-600 dark:text-slate-400">預算管理</button>
@@ -236,6 +233,11 @@
         <div class="flex items-center gap-1"><button type="button" id="monthPrev" aria-label="上個月" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-base">‹</button><input id="filterMonth" type="month" class="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><button type="button" id="monthNext" aria-label="下個月" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-base">›</button></div>
         <button type="button" id="btnShowAll" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium rounded-xl transition">顯示全部</button>
       </div>
+      <label class="flex items-center justify-between gap-3 text-xs text-slate-500">排序
+        <select id="ledgerSort" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
+          <option value="date-desc">日期：新到舊</option><option value="date-asc">日期：舊到新</option><option value="amount-desc">金額：高到低</option><option value="amount-asc">金額：低到高</option>
+        </select>
+      </label>
 
       <!-- Summary Cards -->
       <div class="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center">
@@ -257,13 +259,24 @@
       <div id="recordList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     </section>
 
+  </div>
+
+  <div id="viewSearch" class="space-y-4 hidden animate-fade-in">
     <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-      <label for="recordSearch" class="block text-sm font-semibold">搜尋所有記帳資料</label>
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="font-bold">搜尋記帳資料</h2>
+        <button type="button" id="searchClose" title="返回記帳明細" aria-label="返回記帳明細" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+      </div>
       <input id="recordSearch" type="search" autocomplete="off" placeholder="日期、類別、備註或金額" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
       <div class="grid grid-cols-2 gap-2">
         <label class="space-y-1 text-xs text-slate-500">開始日期<input id="recordSearchFrom" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
         <label class="space-y-1 text-xs text-slate-500">結束日期<input id="recordSearchTo" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
       </div>
+      <label class="flex items-center justify-between gap-3 text-xs text-slate-500">排序
+        <select id="searchSort" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
+          <option value="date-desc">日期：新到舊</option><option value="date-asc">日期：舊到新</option><option value="amount-desc">金額：高到低</option><option value="amount-asc">金額：低到高</option>
+        </select>
+      </label>
       <p id="recordSearchSummary" aria-live="polite" class="text-xs text-slate-400">輸入關鍵字搜尋所有紀錄</p>
       <div id="recordSearchResults" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     </section>
@@ -298,7 +311,7 @@
     </div>
 
     <!-- Category Breakdown Chart Card -->
-    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+    <section id="trendChartSection" class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
       <div class="flex items-center justify-between">
         <h3 class="font-bold text-sm">支出類別佔比分析</h3>
         <div class="flex gap-1 text-xs bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
@@ -329,7 +342,12 @@
     <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
       <div class="flex items-center justify-between gap-2">
         <h3 class="font-bold text-sm">本期詳細記帳資料</h3>
-        <span id="analyticsRecordCount" class="text-xs text-slate-400"></span>
+        <div class="flex items-center gap-2">
+          <span id="analyticsRecordCount" class="text-xs text-slate-400"></span>
+          <select id="analyticsSort" aria-label="明細排序" class="px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
+            <option value="date-desc">日期新到舊</option><option value="date-asc">日期舊到新</option><option value="amount-desc">金額高到低</option><option value="amount-asc">金額低到高</option>
+          </select>
+        </div>
       </div>
       <div id="analyticsRecordList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     </section>
@@ -693,8 +711,7 @@ async function deleteCustomCategory(type, name) {
 function renderLedger() {
   renderFrequent();
   const filterMonth = $('#filterMonth').value;
-  const filtered = records.filter(r => !filterMonth || r.date.startsWith(filterMonth))
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id));
+  const filtered = sortRecords(records.filter(r => !filterMonth || r.date.startsWith(filterMonth)), $('#ledgerSort').value);
 
   let inc = 0, exp = 0;
   filtered.forEach(r => r.type === 'income' ? inc += r.amount : exp += r.amount);
@@ -769,6 +786,15 @@ function renderLedger() {
   renderRecordSearch();
 }
 
+function sortRecords(list, sort) {
+  const [key, direction] = sort.split('-');
+  return [...list].sort((a, b) => {
+    const primary = key === 'amount' ? a.amount - b.amount : a.date.localeCompare(b.date);
+    const tieBreak = b.date.localeCompare(a.date) || b.id - a.id;
+    return primary ? primary * (direction === 'asc' ? 1 : -1) : tieBreak;
+  });
+}
+
 function renderAuxRecordList(container, list, emptyText) {
   if (!list.length) {
     container.replaceChildren(createElementWithText('div', emptyText, 'text-center py-6 text-slate-400 text-sm'));
@@ -822,9 +848,9 @@ function renderRecordSearch() {
     results.replaceChildren();
     return;
   }
-  const matches = records.filter(r => (!query || [r.date, r.type === 'income' ? '收入' : '支出', r.category, r.amount, r.note]
+  const matches = sortRecords(records.filter(r => (!query || [r.date, r.type === 'income' ? '收入' : '支出', r.category, r.amount, r.note]
     .join(' ').toLocaleLowerCase().includes(query)) && (!from || r.date >= from) && (!to || r.date <= to))
-    .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+    , $('#searchSort').value);
   const criteria = [query ? `「${$('#recordSearch').value.trim()}」` : '', from || to ? `${from || '不限'} 至 ${to || '不限'}` : ''].filter(Boolean).join('，');
   $('#recordSearchSummary').textContent = `找到 ${matches.length} 筆符合${criteria}的紀錄`;
   renderAuxRecordList(results, matches, '沒有符合的記帳資料');
@@ -941,8 +967,10 @@ function updateAnalytics() {
   }
 
   // Trend Chart Render
-  renderTrendChart(items, analyticsRange);
-  const detailItems = [...items].sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
+  $('#trendChartSection').classList.toggle('hidden', analyticsRange === 'all');
+  if (analyticsRange === 'all') $('#trendChartContainer').replaceChildren();
+  else renderTrendChart(items, analyticsRange);
+  const detailItems = sortRecords(items, $('#analyticsSort').value);
   $('#analyticsRecordCount').textContent = detailItems.length + ' 筆';
   renderAuxRecordList($('#analyticsRecordList'), detailItems, '本期尚無記帳資料');
 }
@@ -1154,22 +1182,26 @@ function switchTab(tabName) {
   });
 
   $('#viewRecord').classList.toggle('hidden', tabName !== 'record');
+  $('#viewSearch').classList.toggle('hidden', tabName !== 'search');
   $('#viewAnalytics').classList.toggle('hidden', tabName !== 'analytics');
   $('#viewBudget').classList.toggle('hidden', tabName !== 'budget');
+  $('#mainTabNav').classList.toggle('hidden', tabName === 'search');
 
+  if (tabName === 'search') renderRecordSearch();
   if (tabName === 'analytics') updateAnalytics();
   if (tabName === 'budget') updateBudget();
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
   $('#btnBackup').disabled = true;
-  $('#btnExport').disabled = true;
-  $('#btnImport').disabled = true;
+  $('#btnSearch').disabled = true;
   const todayStr = ymd();
   const shortcutAction = new URLSearchParams(location.search).get('action');
   if (shortcutAction === 'expense' || shortcutAction === 'income') manualType = shortcutAction;
   $('#manualDate').value = todayStr;
   $('#filterMonth').value = todayStr.slice(0, 7);
+  $('#recordSearchFrom').value = todayStr;
+  $('#recordSearchTo').value = todayStr;
 
   try {
     db = await openDB();
@@ -1233,16 +1265,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const folderSetupPrompted = await settingsGet('folderSetupPrompted');
   const savedFolder = await settingsGet('dirHandle');
   $('#btnBackup').disabled = false;
-  $('#btnExport').disabled = false;
-  $('#btnImport').disabled = false;
+  $('#btnSearch').disabled = false;
   if (window.showDirectoryPicker && !savedFolder && !folderSetupPrompted) $('#backupSetupDlg').showModal();
 
   // Tab Listeners
   $$('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  $('#btnSearch').onclick = () => { switchTab('search'); $('#recordSearch').focus({ preventScroll: true }); };
+  $('#searchClose').onclick = () => switchTab('record');
   const tabOrder = ['record', 'analytics', 'budget'];
   const appMain = $('#appMain');
   let swipeStart = null, suppressGestureClickUntil = 0;
   appMain.addEventListener('touchstart', e => {
+    if (currentTab === 'search') { swipeStart = null; return; }
     if (e.touches.length !== 1) { swipeStart = null; return; }
     const target = e.target instanceof Element ? e.target : null;
     if (target && target.closest('input, textarea, select, button, [contenteditable="true"], #trendChartContainer')) { swipeStart = null; return; }
@@ -1332,7 +1366,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Filter List Events
   $('#filterMonth').addEventListener('change', renderLedger);
+  $('#ledgerSort').addEventListener('change', renderLedger);
   $('#recordSearch').addEventListener('input', renderRecordSearch);
+  $('#searchSort').addEventListener('change', renderRecordSearch);
+  $('#analyticsSort').addEventListener('change', updateAnalytics);
   $('#btnShowAll').addEventListener('click', () => { $('#filterMonth').value = ''; renderLedger(); });
 
   // Analytics Range Switchers
@@ -1371,9 +1408,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Export / Import
-  $('#btnExport').addEventListener('click', exportBackup);
-
-  $('#btnImport').addEventListener('click', () => $('#fileInput').click());
+  $('#bkImportJson').addEventListener('click', () => $('#fileInput').click());
   $('#fileInput').addEventListener('change', async e => {
     const file = e.target.files[0];
     e.target.value = '';
@@ -1561,22 +1596,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-<dialog id="backupDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+<dialog id="backupDlg" class="w-[92vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[4vh] mb-auto mx-auto backdrop:bg-black/50">
   <div class="p-4 space-y-3">
-    <h3 class="font-bold">資料管理</h3>
-    <p id="bkStatus" class="text-sm text-slate-500 dark:text-slate-400"></p>
-    <p id="bkFolder" class="text-sm text-slate-500 dark:text-slate-400"></p>
+    <div class="flex items-center justify-between gap-3">
+      <h3 class="font-bold">資料管理</h3>
+      <button type="button" id="bkClose" title="關閉" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 text-white">匯出 JSON</button>
+      <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">匯入 JSON</button>
+      <button type="button" id="bkCsv" class="px-3 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">匯出 CSV</button>
+      <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-700 text-white">匯出 CSV 並分享</button>
+    </div>
     <div class="flex items-end gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
       <label for="backupReminderDays" class="flex-1 space-y-1 text-xs font-medium text-slate-500 dark:text-slate-400">未備份提醒（天）
         <input id="backupReminderDays" type="number" min="1" max="365" step="1" inputmode="numeric" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
       </label>
       <button type="button" id="bkSaveReminder" class="px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-sm font-semibold">儲存</button>
     </div>
-    <div class="flex flex-wrap gap-2">
-      <button type="button" id="bkShare" class="px-4 py-3 rounded-xl font-semibold bg-teal-600 text-white">匯出並分享</button>
-      <button type="button" id="bkCsv" class="px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">匯出 CSV</button>
-      <button type="button" id="bkPick" class="px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">選擇備份資料夾</button>
-    </div>
+    <button type="button" id="bkPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">選擇備份資料夾</button>
+    <p id="bkFolder" class="text-sm text-slate-500 dark:text-slate-400"></p>
+    <p id="bkStatus" class="text-xs text-slate-500 dark:text-slate-400"></p>
     <h4 class="font-semibold text-sm pt-2">App 內快照（最近 7 份）</h4>
     <p class="text-xs text-slate-400">快照存在這個瀏覽器裡，清除網站資料時會一起消失，不能取代匯出備份。</p>
     <div id="bkSnaps" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
@@ -1584,13 +1624,12 @@ document.addEventListener('DOMContentLoaded', () => {
       <p class="text-xs text-slate-500 dark:text-slate-400">只刪除記帳明細；預算、外觀設定與備份快照會保留。</p>
       <button type="button" id="btnClearRecords" class="w-full px-4 py-3 rounded-xl text-orange-600 bg-orange-50 dark:bg-slate-800 dark:text-orange-400 font-semibold">刪除所有記錄</button>
     </div>
-    <button type="button" id="bkClose" class="px-4 py-3 rounded-xl font-semibold w-full bg-slate-100 dark:bg-slate-800">關閉</button>
   </div>
 </dialog>
 <dialog id="backupSetupDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
   <div class="p-5 space-y-4">
     <h3 class="font-bold">設定備份資料夾</h3>
-    <p class="text-sm text-slate-500 dark:text-slate-400">選擇資料夾後，自動備份與手動匯出的檔案都會存入其中的 backup/ 資料夾。</p>
+    <p class="text-sm text-slate-500 dark:text-slate-400">選擇資料夾後，自動備份與手動匯出的檔案都會直接存入此資料夾。</p>
     <button type="button" id="bkSetupPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-teal-600 text-white">選擇資料夾</button>
     <button type="button" id="bkSetupLater" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">稍後設定</button>
   </div>
@@ -1811,7 +1850,7 @@ async function updateBackupUI() {
   const stale = records.length > 0 && days >= reminderDays;
   banner.classList.toggle('hidden', !(stale || (rec && needPerm)));
   if (rec && needPerm) { $('#bannerText').textContent = '備份資料夾需要重新授權才能自動備份'; btn.textContent = '重新授權'; btn.onclick = regrant; }
-  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = '匯出並分享'; btn.onclick = exportShare; }
+  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = '匯出 CSV 並分享'; btn.onclick = exportShare; }
   $('#bkStatus').textContent = '最近一次外部備份：' + (le ? new Date(le).toLocaleString('zh-TW') : '尚未備份');
   $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「匯出並分享」備份。'
     : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
@@ -1835,6 +1874,7 @@ document.addEventListener('DOMContentLoaded', () => {
     await updateBackupUI();
     showToast('備份提醒已設為 ' + days + ' 天');
   };
+  $('#bkExportJson').onclick = exportBackup;
   $('#btnClearRecords').onclick = clearAllRecords;
   $('#bkShare').onclick = exportShare; $('#bkCsv').onclick = exportCSV; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
 });
