@@ -219,6 +219,7 @@
 
         <!-- Chips Categories Container -->
         <div id="categoryChips" class="flex flex-wrap gap-2 pt-1"></div>
+        <button type="button" id="manageCategoriesBtn" class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">管理自訂類別</button>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
           <input id="manualNote" maxlength="100" placeholder="備註說明（選填）" class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -259,6 +260,10 @@
     <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
       <label for="recordSearch" class="block text-sm font-semibold">搜尋所有記帳資料</label>
       <input id="recordSearch" type="search" autocomplete="off" placeholder="日期、類別、備註或金額" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+      <div class="grid grid-cols-2 gap-2">
+        <label class="space-y-1 text-xs text-slate-500">開始日期<input id="recordSearchFrom" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
+        <label class="space-y-1 text-xs text-slate-500">結束日期<input id="recordSearchTo" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
+      </div>
       <p id="recordSearchSummary" aria-live="polite" class="text-xs text-slate-400">輸入關鍵字搜尋所有紀錄</p>
       <div id="recordSearchResults" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     </section>
@@ -450,6 +455,9 @@ let db = null, records = [], lastId = 0;
 let currentTab = 'record';
 let manualType = 'expense';
 let selectedCategory = null;
+let customCategories = { expense: [], income: [] };
+let categoryBeingEdited = null;
+let categoryPendingDelete = null;
 let customPending = { expense: new Set(), income: new Set() };
 let analyticsRange = 'week';
 let chartMode = 'expense';
@@ -531,6 +539,7 @@ function getCategoriesFor(type) {
     c.score += (now - new Date(r.date + 'T00:00:00')) / 864e5 <= 30 ? 3 : 1;
     map.set(r.category, c);
   }
+  customCategories[type].forEach(n => map.has(n) || map.set(n, { n, order: 200, score: 0 }));
   customPending[type].forEach(n => map.has(n) || map.set(n, { n, order: 200, score: 0 }));
   const rank = c => (c.n === '其他' ? 1 : 0);
   return [...map.values()].sort((a, b) => rank(a) - rank(b) || b.score - a.score || a.order - b.order).map(c => c.n);
@@ -557,14 +566,127 @@ function renderCategoryChips() {
       addBtn.onclick = () => {
         const name = (prompt('請輸入新類別名稱（最多 8 個字）') || '').trim().slice(0, 8);
         if (!name) return;
-        customPending[manualType].add(name);
-        selectedCategory = name;
-        renderCategoryChips();
+        addCustomCategory(manualType, name);
       };
       addBtn.append('＋ 新增');
       return addBtn;
     })()
   );
+}
+
+async function saveCustomCategories(type, names) {
+  const next = { ...customCategories, [type]: names };
+  await settingsPut({ key: 'customCategories', expense: next.expense, income: next.income });
+  customCategories = next;
+}
+
+async function addCustomCategory(type, name) {
+  const clean = name.trim().slice(0, 20);
+  if (!clean) return;
+  if (getCategoriesFor(type).includes(clean)) return showToast('這個類別已經存在');
+  try {
+    await saveCustomCategories(type, [...customCategories[type], clean]);
+    if (type === manualType) selectedCategory = clean;
+    renderCategoryChips();
+    renderCategoryManager();
+    showToast('已新增類別：' + clean);
+  } catch (e) { showToast('類別儲存失敗，請再試一次'); }
+}
+
+function getManagedCategories(type) {
+  const defaults = new Set(DEFAULTS[type].map(([name]) => name));
+  const fromRecords = records.filter(r => r.type === type).map(r => r.category);
+  return [...new Set([...customCategories[type], ...customPending[type], ...fromRecords])]
+    .filter(name => !defaults.has(name)).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+}
+
+function renderCategoryManager() {
+  const type = $('#manageCategoryType').value;
+  const names = getManagedCategories(type);
+  if (!names.length) {
+    $('#managedCategoryList').replaceChildren(createElementWithText('div', '尚無自訂類別', 'py-4 text-center text-sm text-slate-400'));
+    return;
+  }
+  const rows = names.map(name => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-3 py-2.5';
+    const actions = document.createElement('div');
+    actions.className = 'flex flex-none gap-2';
+    if (categoryPendingDelete === name) {
+      const affectedCount = records.filter(r => r.type === type && r.category === name).length;
+      const warning = createElementWithText('span', affectedCount ? `${affectedCount} 筆紀錄將改為「其他」` : '確定刪除這個類別？', 'min-w-0 flex-1 text-xs text-orange-600');
+      const confirmDelete = document.createElement('button');
+      confirmDelete.type = 'button'; confirmDelete.className = 'px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold'; confirmDelete.textContent = '確定刪除';
+      confirmDelete.onclick = () => deleteCustomCategory(type, name);
+      const cancelDelete = document.createElement('button');
+      cancelDelete.type = 'button'; cancelDelete.className = 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; cancelDelete.textContent = '取消';
+      cancelDelete.onclick = () => { categoryPendingDelete = null; renderCategoryManager(); };
+      actions.append(confirmDelete, cancelDelete); row.append(warning, actions);
+      return row;
+    }
+    if (categoryBeingEdited === name) {
+      const input = document.createElement('input');
+      input.type = 'text'; input.maxLength = 20; input.value = name;
+      input.className = 'min-w-0 flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm';
+      const save = document.createElement('button');
+      save.type = 'button'; save.className = 'px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold'; save.textContent = '儲存';
+      save.onclick = () => editCustomCategory(type, name, input.value);
+      const cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.className = 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; cancel.textContent = '取消';
+      cancel.onclick = () => { categoryBeingEdited = null; renderCategoryManager(); };
+      actions.append(save, cancel); row.append(input, actions);
+      return row;
+    }
+    const label = createElementWithText('span', name, 'min-w-0 flex-1 truncate text-sm font-medium');
+    const edit = document.createElement('button');
+    edit.type = 'button'; edit.className = 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; edit.textContent = '編輯';
+    edit.onclick = () => { categoryBeingEdited = name; renderCategoryManager(); };
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-slate-800 text-orange-600 text-xs font-semibold'; remove.textContent = '刪除';
+    remove.onclick = () => { categoryPendingDelete = name; renderCategoryManager(); };
+    actions.append(edit, remove); row.append(label, actions);
+    return row;
+  });
+  $('#managedCategoryList').replaceChildren(...rows);
+}
+
+async function editCustomCategory(type, oldName, value) {
+  const newName = value.trim().slice(0, 20);
+  if (!newName || newName === oldName) { categoryBeingEdited = null; renderCategoryManager(); return; }
+  if (getCategoriesFor(type).includes(newName)) return showToast('這個類別名稱已經存在');
+  const affected = records.filter(r => r.type === type && r.category === oldName);
+  try {
+    if (affected.length) {
+      const renamed = affected.map(r => ({ ...r, category: newName }));
+      await dbTx('records', 'readwrite', store => renamed.forEach(r => store.put(r)));
+      const byId = new Map(renamed.map(r => [r.id, r]));
+      records = records.map(r => byId.get(r.id) || r);
+    }
+    const names = customCategories[type].filter(n => n !== oldName);
+    await saveCustomCategories(type, [...names, newName]);
+    customPending[type].delete(oldName);
+    customPending[type].add(newName);
+    categoryBeingEdited = null;
+    refreshAll(); renderCategoryManager();
+    showToast('類別已更新：' + newName);
+  } catch (e) { showToast('類別更新失敗，請再試一次'); }
+}
+
+async function deleteCustomCategory(type, name) {
+  const affected = records.filter(r => r.type === type && r.category === name);
+  try {
+    if (affected.length) {
+      const changed = affected.map(r => ({ ...r, category: '其他' }));
+      await dbTx('records', 'readwrite', store => changed.forEach(r => store.put(r)));
+      const byId = new Map(changed.map(r => [r.id, r]));
+      records = records.map(r => byId.get(r.id) || r);
+    }
+    await saveCustomCategories(type, customCategories[type].filter(n => n !== name));
+    customPending[type].delete(name);
+    categoryPendingDelete = null;
+    refreshAll(); renderCategoryManager();
+    showToast('已刪除類別：' + name);
+  } catch (e) { showToast('類別刪除失敗，請再試一次'); }
 }
 
 /* Render Main Ledger View */
@@ -687,16 +809,24 @@ function renderAuxRecordList(container, list, emptyText) {
 
 function renderRecordSearch() {
   const query = $('#recordSearch').value.trim().toLocaleLowerCase();
+  const from = $('#recordSearchFrom').value;
+  const to = $('#recordSearchTo').value;
   const results = $('#recordSearchResults');
-  if (!query) {
+  if (!query && !from && !to) {
     $('#recordSearchSummary').textContent = '輸入關鍵字搜尋所有紀錄';
     results.replaceChildren();
     return;
   }
-  const matches = records.filter(r => [r.date, r.type === 'income' ? '收入' : '支出', r.category, r.amount, r.note]
-    .join(' ').toLocaleLowerCase().includes(query))
+  if (from && to && from > to) {
+    $('#recordSearchSummary').textContent = '開始日期不可晚於結束日期';
+    results.replaceChildren();
+    return;
+  }
+  const matches = records.filter(r => (!query || [r.date, r.type === 'income' ? '收入' : '支出', r.category, r.amount, r.note]
+    .join(' ').toLocaleLowerCase().includes(query)) && (!from || r.date >= from) && (!to || r.date <= to))
     .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.id - a.id);
-  $('#recordSearchSummary').textContent = `找到 ${matches.length} 筆符合「${$('#recordSearch').value.trim()}」的紀錄`;
+  const criteria = [query ? `「${$('#recordSearch').value.trim()}」` : '', from || to ? `${from || '不限'} 至 ${to || '不限'}` : ''].filter(Boolean).join('，');
+  $('#recordSearchSummary').textContent = `找到 ${matches.length} 筆符合${criteria}的紀錄`;
   renderAuxRecordList(results, matches, '沒有符合的記帳資料');
 }
 
@@ -1083,6 +1213,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   } catch (e) {}
 
+  try {
+    const savedCategories = await settingsGet('customCategories');
+    if (savedCategories) {
+      customCategories = {
+        expense: Array.isArray(savedCategories.expense) ? savedCategories.expense.filter(n => typeof n === 'string' && n.trim()) : [],
+        income: Array.isArray(savedCategories.income) ? savedCategories.income.filter(n => typeof n === 'string' && n.trim()) : []
+      };
+    }
+  } catch (e) {}
+
   $$('.type-btn').forEach(btn => {
     const active = btn.dataset.type === manualType;
     btn.className = `type-btn py-2 rounded-lg text-sm font-semibold transition ${active ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`;
@@ -1266,7 +1406,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <select id="eType" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><option value="expense">支出</option><option value="income">收入</option></select>
       <input id="eAmount" type="number" inputmode="decimal" step="any" min="0" required placeholder="金額" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
-    <input id="eCat" list="eCatList" maxlength="20" required placeholder="類別" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><datalist id="eCatList"></datalist>
+    <select id="eCat" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
     <div class="grid grid-cols-2 gap-2"><input id="eDate" type="date" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><input id="eNote" maxlength="100" placeholder="備註" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></div>
     <div class="flex gap-2">
       <button type="button" id="eDel" class="px-4 py-3 rounded-xl text-orange-600 bg-orange-50 dark:bg-slate-800 font-semibold">刪除</button>
@@ -1275,19 +1415,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     </div>
   </form>
 </dialog>
+<dialog id="categoryManagerDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="font-bold">管理自訂類別</h3>
+      <button type="button" id="categoryManagerClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <select id="manageCategoryType" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base">
+      <option value="expense">支出類別</option><option value="income">收入類別</option>
+    </select>
+    <button type="button" id="addManagedCategory" class="w-full px-4 py-3 rounded-xl font-semibold bg-teal-600 text-white">新增類別</button>
+    <div id="managedCategoryList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+  </div>
+</dialog>
 <script>
 const refreshAll = () => { renderCategoryChips(); renderLedger(); updateAnalytics(); updateBudget(); };
 const undoAdd = async n => { await dbTx('records', 'readwrite', s => s.delete(n.id)); records = records.filter(x => x.id !== n.id); refreshAll(); };
 
 /* 編輯 */
 let editing = null;
-function fillEditCats() {
-  $('#eCatList').replaceChildren(...getCategoriesFor($('#eType').value).map(c => { const o = document.createElement('option'); o.value = typeof c === 'string' ? c : c.n; return o; }));
+function fillEditCats(selected = $('#eCat').value) {
+  const names = getCategoriesFor($('#eType').value);
+  if (selected && !names.includes(selected)) names.push(selected);
+  $('#eCat').replaceChildren(...names.map(name => {
+    const option = document.createElement('option');
+    option.value = name; option.textContent = name;
+    return option;
+  }));
+  if (selected) $('#eCat').value = selected;
 }
 function openEdit(r) {
   editing = r;
-  $('#eType').value = r.type; $('#eAmount').value = r.amount; $('#eCat').value = r.category; $('#eDate').value = r.date; $('#eNote').value = r.note || '';
-  fillEditCats(); $('#editDlg').showModal();
+  $('#eType').value = r.type; $('#eAmount').value = r.amount; $('#eDate').value = r.date; $('#eNote').value = r.note || '';
+  fillEditCats(r.category); $('#editDlg').showModal();
 }
 /* 常用項目：近 90 天出現 2 次以上的同類別／備註／金額，點一下記今天 */
 function renderFrequent() {
@@ -1375,9 +1535,22 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#periodPrev').onclick = () => { analyticsOffset++; updateAnalytics(); };
   $('#periodNext').onclick = () => { if (analyticsOffset > 0) { analyticsOffset--; updateAnalytics(); } };
   $$('.range-btn').forEach(b => b.addEventListener('click', () => { analyticsOffset = 0; updateAnalytics(); }));
-  $('#eType').onchange = fillEditCats;
+  $('#eType').onchange = () => fillEditCats($('#eCat').value);
+  $('#manageCategoriesBtn').onclick = () => {
+    $('#manageCategoryType').value = manualType;
+    renderCategoryManager();
+    $('#categoryManagerDlg').showModal();
+  };
+  $('#manageCategoryType').onchange = renderCategoryManager;
+  $('#addManagedCategory').onclick = () => {
+    const name = (prompt('請輸入新類別名稱（最多 20 個字）') || '').trim();
+    if (name) addCustomCategory($('#manageCategoryType').value, name);
+  };
+  $('#categoryManagerClose').onclick = () => $('#categoryManagerDlg').close();
   $('#eCancel').onclick = () => $('#editDlg').close();
   $('#eDel').onclick = () => { $('#editDlg').close(); deleteRecord(editing); };
+  $('#recordSearchFrom').addEventListener('input', renderRecordSearch);
+  $('#recordSearchTo').addEventListener('input', renderRecordSearch);
   $('#editForm').addEventListener('submit', async e => {
     e.preventDefault();
     const u = sanitizeRecord({ id: editing.id, type: $('#eType').value, amount: $('#eAmount').value, category: $('#eCat').value, date: $('#eDate').value, note: $('#eNote').value });
