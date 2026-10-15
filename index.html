@@ -786,10 +786,12 @@ function renderLedger() {
     info.onclick = () => openEdit(r);
     const title = document.createElement('div');
     title.className = 'w-full font-semibold text-base truncate';
+    title.style.textAlign = 'right';
     title.textContent = r.category;
 
     const note = document.createElement('div');
     note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate';
+    note.style.textAlign = 'right';
     note.textContent = r.note || '無備註';
 
     info.append(title, note);
@@ -847,6 +849,8 @@ function renderAuxRecordList(container, list, emptyText) {
     info.onclick = () => openEdit(r);
     const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate');
     const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
+    category.style.textAlign = 'right';
+    note.style.textAlign = 'right';
     info.append(category, note);
     const right = document.createElement('div');
     right.className = 'flex items-center gap-2 flex-none';
