@@ -725,7 +725,6 @@ function renderLedger() {
   balEl.className = 'text-sm sm:text-base font-bold tabular-nums ' + (bal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400');
 
   const listEl = $('#recordList');
-  const wk = '日一二三四五六';
 
   if (!filtered.length) {
     const empty = document.createElement('div');
@@ -738,35 +737,35 @@ function renderLedger() {
 
   const nodes = filtered.map(r => {
     const item = document.createElement('div');
-    item.className = 'flex items-center justify-between py-3 group';
+    item.className = 'flex items-center justify-between gap-2 py-3.5 group';
 
-    const left = document.createElement('div');
-    left.className = 'flex items-center space-x-3 min-w-0';
-
-    const ico = document.createElement('div');
-    ico.className = 'w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-lg flex-shrink-0 shadow-sm';
-    ico.textContent = iconFor(r.type, r.category);
-
-    const info = document.createElement('div');
-    info.className = 'min-w-0';
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.onclick = () => openEdit(r);
     const title = document.createElement('div');
-    title.className = 'font-semibold text-sm truncate';
+    title.className = 'w-full font-semibold text-base truncate';
     title.textContent = r.category;
 
-    const meta = document.createElement('div');
-    meta.className = 'text-xs text-slate-400 truncate';
-    const dayOfWeek = wk[new Date(r.date + 'T00:00:00').getDay()];
-    meta.textContent = `${r.date} 週${dayOfWeek}${r.note ? ' · ' + r.note : ''}`;
+    const note = document.createElement('div');
+    note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate';
+    note.textContent = r.note || '無備註';
 
-    info.append(title, meta);
-    left.append(ico, info);
+    info.append(title, note);
 
     const right = document.createElement('div');
-    right.className = 'flex items-center space-x-3 flex-shrink-0';
+    right.className = 'flex items-center gap-2 flex-none';
+
+    const amountDate = document.createElement('div');
+    amountDate.className = 'flex min-w-[112px] flex-col items-end';
 
     const amount = document.createElement('div');
-    amount.className = `font-bold text-sm sm:text-base tabular-nums ${r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'}`;
+    amount.className = `font-bold text-lg tabular-nums ${r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`;
     amount.textContent = (r.type === 'income' ? '+' : '-') + fmt(r.amount);
+
+    const date = document.createElement('div');
+    date.className = 'text-sm text-slate-500 dark:text-slate-400';
+    date.textContent = r.date;
 
     const delBtn = document.createElement('button');
     delBtn.type = 'button';
@@ -774,11 +773,9 @@ function renderLedger() {
     delBtn.title = '刪除紀錄';
     delBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
     delBtn.onclick = () => deleteRecord(r);
-    left.onclick = () => openEdit(r);
-    left.classList.add('cursor-pointer', 'flex-1');
-
-    right.append(amount, delBtn);
-    item.append(left, right);
+    amountDate.append(amount, date);
+    right.append(amountDate, delBtn);
+    item.append(info, right);
     return item;
   });
 
@@ -802,23 +799,21 @@ function renderAuxRecordList(container, list, emptyText) {
   }
   const nodes = list.map(r => {
     const row = document.createElement('div');
-    row.className = 'flex items-center justify-between gap-2 py-3';
+    row.className = 'flex items-center justify-between gap-2 py-3.5';
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex items-center gap-3 min-w-0 flex-1 text-left';
+    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
     info.onclick = () => openEdit(r);
-    const icon = document.createElement('span');
-    icon.className = 'w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-none';
-    icon.textContent = iconFor(r.type, r.category);
-    const text = document.createElement('span');
-    text.className = 'min-w-0';
-    const category = createElementWithText('span', r.category, 'block font-semibold text-sm truncate');
-    const meta = createElementWithText('span', r.date + (r.note ? ' · ' + r.note : ''), 'block text-xs text-slate-400 truncate');
-    text.append(category, meta);
-    info.append(icon, text);
+    const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate');
+    const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
+    info.append(category, note);
     const right = document.createElement('div');
     right.className = 'flex items-center gap-2 flex-none';
-    const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-sm tabular-nums ' + (r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-800 dark:text-slate-100'));
+    const amountDate = document.createElement('div');
+    amountDate.className = 'flex min-w-[112px] flex-col items-end';
+    const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-lg tabular-nums ' + (r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'));
+    const date = createElementWithText('span', r.date, 'text-sm text-slate-500 dark:text-slate-400');
+    amountDate.append(amount, date);
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'text-slate-400 hover:text-orange-500 p-2 rounded-lg';
@@ -826,7 +821,7 @@ function renderAuxRecordList(container, list, emptyText) {
     remove.setAttribute('aria-label', '刪除 ' + r.category + ' ' + fmt(r.amount));
     remove.textContent = '×';
     remove.onclick = () => deleteRecord(r);
-    right.append(amount, remove);
+    right.append(amountDate, remove);
     row.append(info, right);
     return row;
   });
