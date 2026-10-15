@@ -782,18 +782,18 @@ function renderLedger() {
 
     const info = document.createElement('button');
     info.type = 'button';
-    // 調整：確保 flex 項目方向與文字均靠右對齊 (text-right items-end)
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-2';
+    // 修正：使用 flex flex-col items-end text-right 搭配 pr-2
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-3';
     info.onclick = () => openEdit(r);
 
     const title = document.createElement('div');
-    // 調整：加入 text-right 確保文字靠右對齊
-    title.className = 'w-full font-semibold text-base truncate text-right';
+    // 修正：加入 inline-block 或 text-right 確保靠右
+    title.className = 'font-semibold text-base truncate text-right';
     title.textContent = r.category;
 
     const note = document.createElement('div');
-    // 調整：加入 text-right 確保備註靠右對齊
-    note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate text-right';
+    // 修正：加入 text-right 確保備註靠右
+    note.className = 'text-sm text-slate-500 dark:text-slate-400 truncate text-right';
     note.textContent = r.note || '無備註';
 
     info.append(title, note);
@@ -847,13 +847,12 @@ function renderAuxRecordList(container, list, emptyText) {
     row.className = 'flex items-center justify-between gap-2 py-3.5';
     const info = document.createElement('button');
     info.type = 'button';
-    // 調整：靠右排版 (items-end text-right)
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-2';
+    // 修正：同樣套用 items-end text-right 與 pr-3
+    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right pr-3';
     info.onclick = () => openEdit(r);
 
-    // 調整：類別與備註加上 text-right
-    const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate text-right');
-    const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate text-right');
+    const category = createElementWithText('span', r.category, 'font-semibold text-base truncate text-right');
+    const note = createElementWithText('span', r.note || '無備註', 'text-sm text-slate-500 dark:text-slate-400 truncate text-right');
     info.append(category, note);
 
     const right = document.createElement('div');
