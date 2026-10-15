@@ -170,6 +170,7 @@
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-4-4"/></svg>
       </button>
       <input id="fileInput" type="file" accept=".json,application/json" class="hidden">
+      <input id="csvInput" type="file" accept=".csv,text/csv" class="hidden">
     </div>
   </div>
 </header>
@@ -192,7 +193,7 @@
       <form id="quickForm" autocomplete="off" class="space-y-2">
         <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
         <div class="flex gap-2">
-          <input id="quickInput" enterkeyhint="done" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +50000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <input id="quickInput" enterkeyhint="done" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +30000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
           <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-600/20 transition">記</button>
         </div>
         <div id="quickPreview" class="text-xs text-slate-400 dark:text-slate-500 min-h-[18px] transition-all"></div>
@@ -1474,6 +1475,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Export / Import
   $('#bkImportJson').addEventListener('click', () => $('#fileInput').click());
+  $('#bkImportCsv').addEventListener('click', () => $('#csvInput').click());
   $('#fileInput').addEventListener('change', async e => {
     const file = e.target.files[0];
     e.target.value = '';
@@ -1489,6 +1491,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast(`已成功匯入 ${list.length} 筆資料`);
     } catch (err) {
       showToast('檔案格式錯誤，無法順利匯入');
+    }
+  });
+  $('#csvInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const { records: imported, skipped, hasIdColumn, missingIds } = parseCSVRecords(await file.text());
+      if (!imported.length) return showToast('CSV 沒有可匯入的有效紀錄');
+      const idNotice = hasIdColumn
+        ? `同 ID 紀錄會覆蓋既有資料${missingIds ? `；${missingIds} 列沒有有效 ID，會新增為新紀錄` : ''}`
+        : 'CSV 不含 ID，會新增為新紀錄；重複匯入可能產生重複資料';
+      if (!confirm(`準備匯入 ${imported.length} 筆紀錄。${idNotice}。${skipped ? `另有 ${skipped} 列格式無效會略過。` : ''}確定繼續？`)) return;
+      await mergeRecordsIn(imported);
+      renderLedger(); updateAnalytics(); updateBudget();
+      showToast(`CSV 已匯入 ${imported.length} 筆` + (skipped ? `，略過 ${skipped} 列無效資料` : ''));
+    } catch (err) {
+      showToast('CSV 格式錯誤，請確認欄位包含日期、類型、類別、金額、備註');
     }
   });
 
@@ -1665,21 +1685,23 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="p-4 space-y-3">
     <div class="flex items-center justify-between gap-3">
       <h3 class="font-bold">資料管理</h3>
-      <button type="button" id="bkClose" title="關閉" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+      <button type="button" id="bkClose" title="關閉" aria-label="關閉" class="w-10 h-10 flex-none p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">✕</button>
     </div>
+    <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 text-white">匯出 JSON</button>
-      <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">匯入 JSON</button>
-      <button type="button" id="bkCsv" class="px-3 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">匯出 CSV</button>
-      <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-700 text-white">匯出 CSV 並分享</button>
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON 並分享</button>
+      <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
+      <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
+      <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
     </div>
+    <h4 class="border-t border-slate-100 dark:border-slate-800 pt-3 text-sm font-semibold">備份設定</h4>
     <div class="flex items-end gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
       <label for="backupReminderDays" class="flex-1 space-y-1 text-xs font-medium text-slate-500 dark:text-slate-400">未備份提醒（天）
         <input id="backupReminderDays" type="number" min="1" max="365" step="1" inputmode="numeric" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
       </label>
       <button type="button" id="bkSaveReminder" class="px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-sm font-semibold">儲存</button>
     </div>
-    <button type="button" id="bkPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">選擇備份資料夾</button>
+    <button type="button" id="bkPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition">選擇備份資料夾</button>
     <p id="bkFolder" class="text-sm text-slate-500 dark:text-slate-400"></p>
     <p id="bkStatus" class="text-xs text-slate-500 dark:text-slate-400"></p>
     <h4 class="font-semibold text-sm pt-2">App 內快照（最近 7 份）</h4>
@@ -1824,42 +1846,44 @@ async function writeExport(file) {
   } catch (e) { return false; }
 }
 
-async function exportBackup() {
+async function exportJSONShare() {
+  if (!records.length) return showToast('目前沒有資料可以匯出');
   const file = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
-  const saved = await writeExport(file);
-  if (!saved) downloadExport(file);
-  await markExport();
-  updateBackupUI();
-  showToast(saved ? '備份已儲存至備份資料夾' : '無法寫入備份資料夾，已改為下載');
+  await shareExportFile(file, file, '記帳備份 JSON');
 }
 
-async function exportShare() {
-  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv' });
-  const jsonBackup = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
+async function exportCSVShare() {
+  if (!records.length) return showToast('目前沒有資料可以匯出');
+  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv;charset=utf-8' });
+  await shareExportFile(file, file, '記帳備份 CSV');
+}
+
+async function shareExportFile(file, backupFile, title) {
   let sharePromise = null;
   try {
     if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      sharePromise = navigator.share({ files: [file], title: '記帳備份 CSV' })
+      sharePromise = navigator.share({ files: [file], title })
         .then(() => ({ shared: true }), error => ({ error }));
     }
   } catch (e) {}
-  const saved = await writeSavedExport(jsonBackup);
+  const saved = await writeSavedExport(backupFile);
   if (sharePromise) {
     const result = await sharePromise;
     if (result.shared) {
       await markExport();
       updateBackupUI();
-      showToast(saved ? 'CSV 已分享，JSON 備份已存入資料夾' : 'CSV 已分享，但 JSON 備份資料夾寫入失敗');
+      showToast(saved ? file.type === 'application/json' ? 'JSON 已分享並存入備份資料夾' : 'CSV 已分享，JSON 備份已存入資料夾'
+        : file.type === 'application/json' ? 'JSON 已分享，但備份資料夾寫入失敗' : 'CSV 已分享，但 JSON 備份資料夾寫入失敗');
       return;
     } else {
       if (result.error.name === 'AbortError') {
         if (saved) await markExport();
-        showToast(saved ? 'JSON 備份已存入資料夾，已取消分享' : '已取消分享');
+        showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享');
         return;
       }
-      showToast('分享失敗（' + result.error.name + '），已改為下載 CSV');
+      showToast('分享失敗（' + result.error.name + '），已改為下載 ' + (file.type === 'application/json' ? 'JSON' : 'CSV'));
     }
-  } else showToast('此瀏覽器不支援檔案分享，已改為下載 CSV');
+  } else showToast('此瀏覽器不支援檔案分享，已改為下載 ' + (file.type === 'application/json' ? 'JSON' : 'CSV'));
   downloadExport(file);
   await markExport();
   updateBackupUI();
@@ -1877,20 +1901,70 @@ async function writeSavedExport(file) {
 
 function buildCSV(list) {
   const esc = v => { v = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  const rows = [['日期', '類型', '類別', '金額', '備註']];
+  const rows = [['ID', '日期', '類型', '類別', '金額', '備註']];
   [...list].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id)
-    .forEach(r => rows.push([r.date, r.type === 'income' ? '收入' : '支出', esc(r.category), r.amount, esc(r.note)]));
+    .forEach(r => rows.push([r.id, r.date, r.type === 'income' ? '收入' : '支出', esc(r.category), r.amount, esc(r.note)]));
   return '\uFEFF' + rows.map(r => r.join(',')).join('\r\n');
 }
-async function exportCSV() {
-  if (!records.length) return showToast('目前沒有資料可以匯出');
-  const file = new File([buildCSV(records)], 'accounting_' + ymd() + '.csv', { type: 'text/csv;charset=utf-8' });
-  const saved = await writeExport(file);
-  if (!saved) downloadExport(file);
-  updateBackupUI();
-  showToast(saved ? 'CSV 已儲存至備份資料夾' : '無法寫入備份資料夾，已改為下載');
+function parseCSVRows(text) {
+  const source = String(text).replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (quoted) {
+      if (char === '"' && source[i + 1] === '"') { cell += '"'; i++; }
+      else if (char === '"') quoted = false;
+      else cell += char;
+    } else if (char === '"' && cell === '') quoted = true;
+    else if (char === ',') { row.push(cell); cell = ''; }
+    else if (char === '\n' || char === '\r') {
+      row.push(cell);
+      if (row.some(value => value.trim())) rows.push(row);
+      row = []; cell = '';
+      if (char === '\r' && source[i + 1] === '\n') i++;
+    } else cell += char;
+  }
+  if (quoted) throw new Error('CSV 引號沒有成對');
+  if (cell.length || row.length) {
+    row.push(cell);
+    if (row.some(value => value.trim())) rows.push(row);
+  }
+  return rows;
 }
-
+function parseCSVRecords(text) {
+  const rows = parseCSVRows(text);
+  if (!rows.length) throw new Error('CSV 沒有資料');
+  const headers = rows.shift().map(value => value.trim());
+  const idIndex = headers.indexOf('ID');
+  const columns = ['日期', '類型', '類別', '金額', '備註'].map(name => headers.indexOf(name));
+  if (columns.some(index => index < 0)) throw new Error('CSV 欄位格式錯誤');
+  const unescapeCell = value => value.replace(/^'(?=[=+\-@\t\r])/, '');
+  let skipped = 0, missingIds = 0;
+  const imported = rows.map(values => {
+    const [dateIndex, typeIndex, categoryIndex, amountIndex, noteIndex] = columns;
+    const typeValue = (values[typeIndex] || '').trim();
+    const type = typeValue === '收入' || typeValue.toLowerCase() === 'income' ? 'income'
+      : typeValue === '支出' || typeValue.toLowerCase() === 'expense' ? 'expense' : null;
+    const rawId = idIndex < 0 ? '' : (values[idIndex] || '').trim();
+    const numericId = Number(rawId);
+    const id = rawId && Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+    if (!id) missingIds++;
+    return sanitizeRecord({
+      id,
+      date: (values[dateIndex] || '').trim(),
+      type,
+      category: unescapeCell(values[categoryIndex] || ''),
+      amount: (values[amountIndex] || '').trim().replace(/,/g, ''),
+      note: unescapeCell(values[noteIndex] || '')
+    });
+  }).filter(record => {
+    if (record) return true;
+    skipped++;
+    return false;
+  });
+  return { records: imported, skipped, hasIdColumn: idIndex >= 0, missingIds };
+}
 async function restoreSnap(snap) {
   if (!confirm('還原到 ' + snap.key.slice(5) + ' 的資料？目前的資料會先暫存一份，之後可再還原。')) return;
   await settingsPut({ key: 'pre-restore', data: records });
@@ -1915,7 +1989,7 @@ async function updateBackupUI() {
   const stale = records.length > 0 && days >= reminderDays;
   banner.classList.toggle('hidden', !(stale || (rec && needPerm)));
   if (rec && needPerm) { $('#bannerText').textContent = '備份資料夾需要重新授權才能自動備份'; btn.textContent = '重新授權'; btn.onclick = regrant; }
-  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = '匯出 CSV 並分享'; btn.onclick = exportShare; }
+  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = '匯出 JSON 並分享'; btn.onclick = exportJSONShare; }
   $('#bkStatus').textContent = '最近一次外部備份：' + (le ? new Date(le).toLocaleString('zh-TW') : '尚未備份');
   $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「匯出並分享」備份。'
     : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
@@ -1939,9 +2013,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await updateBackupUI();
     showToast('備份提醒已設為 ' + days + ' 天');
   };
-  $('#bkExportJson').onclick = exportBackup;
+  $('#bkExportJson').onclick = exportJSONShare;
   $('#btnClearRecords').onclick = clearAllRecords;
-  $('#bkShare').onclick = exportShare; $('#bkCsv').onclick = exportCSV; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
+  $('#bkShare').onclick = exportCSVShare; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
 });
 </script>
 </body>
