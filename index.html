@@ -1730,7 +1730,7 @@ async function exportBackup() {
 }
 
 async function exportShare() {
-  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv;charset=utf-8' });
+  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv' });
   const jsonBackup = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
   let sharePromise = null;
   try {
@@ -1753,7 +1753,7 @@ async function exportShare() {
         showToast(saved ? 'JSON 備份已存入資料夾，已取消分享' : '已取消分享');
         return;
       }
-      showToast('分享失敗，已改為下載 CSV');
+      showToast('分享失敗（' + result.error.name + '），已改為下載 CSV');
     }
   } else showToast('此瀏覽器不支援檔案分享，已改為下載 CSV');
   downloadExport(file);
