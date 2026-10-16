@@ -146,6 +146,9 @@
     to { opacity: 1; transform: translateY(0); }
   }
   .animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
 </style>
 </head>
 <body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between selection:bg-teal-500 selection:text-white">
@@ -193,7 +196,7 @@
       <form id="quickForm" autocomplete="off" class="space-y-2">
         <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
         <div class="flex gap-2">
-          <input id="quickInput" enterkeyhint="done" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +30000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <input id="quickInput" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +30000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
           <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-600/20 transition">記</button>
         </div>
         <div id="quickPreview" class="text-xs text-slate-400 dark:text-slate-500 min-h-[18px] transition-all"></div>
@@ -212,7 +215,7 @@
 
         <div class="flex items-baseline border-b-2 border-slate-200 dark:border-slate-800 pb-1 focus-within:border-teal-500 transition">
           <span class="text-2xl font-bold text-slate-400 mr-1">$</span>
-          <input id="manualAmount" type="number" inputmode="decimal" step="any" min="0" placeholder="0" required class="w-full bg-transparent text-3xl font-bold tabular-nums focus:outline-none">
+          <input id="manualAmount" type="number" inputmode="decimal" enterkeyhint="next" autocomplete="off" step="any" min="0" placeholder="0" required class="w-full bg-transparent text-3xl font-bold tabular-nums focus:outline-none">
         </div>
 
         <!-- Chips Categories Container -->
@@ -220,7 +223,7 @@
         <button type="button" id="manageCategoriesBtn" class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">管理自訂類別</button>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-          <input id="manualNote" maxlength="100" placeholder="備註說明（選填）" class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <input id="manualNote" maxlength="100" enterkeyhint="done" autocomplete="off" placeholder="備註說明（選填）" class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
           <input id="manualDate" type="date" required class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
@@ -268,7 +271,7 @@
         <h2 class="font-bold">搜尋記帳資料</h2>
         <button type="button" id="searchClose" title="返回記帳明細" aria-label="返回記帳明細" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
       </div>
-      <input id="recordSearch" type="search" autocomplete="off" placeholder="日期、類別、備註或金額" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+      <input id="recordSearch" type="search" enterkeyhint="search" autocomplete="off" placeholder="日期、類別、備註或金額" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
       <div class="grid grid-cols-2 gap-2">
         <label class="space-y-1 text-xs text-slate-500">開始日期<input id="recordSearchFrom" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
         <label class="space-y-1 text-xs text-slate-500">結束日期<input id="recordSearchTo" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
@@ -368,7 +371,7 @@
       <div class="space-y-2">
         <label for="budgetInput" class="block text-xs font-medium text-slate-500">設定本月預算金額 ($)</label>
         <div class="flex gap-2">
-          <input id="budgetInput" type="number" min="0" step="100" placeholder="例如：20000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <input id="budgetInput" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="100" placeholder="例如：20000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
           <button type="button" id="btnSaveBudget" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md transition">儲存預算</button>
         </div>
       </div>
@@ -523,6 +526,25 @@ let analyticsRange = 'week';
 let chartMode = 'expense';
 let analyticsOffset = 0;
 
+/* ---------- 錯誤紀錄（存 localStorage，最近 20 筆，供「資料管理 → 診斷資訊」查看） ---------- */
+const ERR_LOG_KEY = 'ledger_error_log';
+const errorLog = () => { try { return JSON.parse(localStorage.getItem(ERR_LOG_KEY) || '[]'); } catch (e) { return []; } };
+function logError(kind, err) {
+  try {
+    const e = err && typeof err === 'object' ? err : { message: String(err) };
+    const list = errorLog();
+    list.unshift({ t: Date.now(), kind, name: String(e.name || ''), msg: String(e.message || e).slice(0, 200), stack: String(e.stack || '').split('\n').slice(0, 3).join(' | ').slice(0, 300) });
+    localStorage.setItem(ERR_LOG_KEY, JSON.stringify(list.slice(0, 20)));
+  } catch (_) {}
+}
+window.addEventListener('error', ev => logError('error', ev.error || { message: ev.message }));
+window.addEventListener('unhandledrejection', ev => logError('promise', ev.reason));
+
+/* ---------- 多視窗同步：任一視窗寫入後通知其他視窗重新讀取 ---------- */
+const syncCh = 'BroadcastChannel' in window ? new BroadcastChannel('smart_ledger_sync') : null;
+const syncNotify = () => { try { if (syncCh) syncCh.postMessage('changed'); } catch (e) {} };
+const cleanNames = a => Array.isArray(a) ? [...new Set(a.filter(n => typeof n === 'string').map(n => n.trim().slice(0, 20)).filter(Boolean))] : [];
+
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
 const fmt = n => '$' + n.toLocaleString('zh-TW', { maximumFractionDigits: 2 });
@@ -535,7 +557,12 @@ const openDB = () => new Promise((res, rej) => {
     if (!d.objectStoreNames.contains('records')) d.createObjectStore('records', { keyPath: 'id' });
     if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings', { keyPath: 'key' });
   };
-  r.onsuccess = () => res(r.result);
+  r.onsuccess = () => {
+    const d = r.result;
+    d.onversionchange = () => { d.close(); db = null; showToast('資料庫已在其他視窗更新，請重新載入', '重新載入', () => location.reload(), 60000); };
+    res(d);
+  };
+  r.onblocked = () => showToast('請先關閉其他開啟此 App 的視窗，再重新載入', null, null, 8000);
   r.onerror = () => rej(r.error);
 });
 
@@ -543,7 +570,7 @@ const dbTx = (storeName, mode, fn) => new Promise((res, rej) => {
   if (!db) return res(null);
   if (storeName === 'records' && mode === 'readwrite' && typeof scheduleBackup === 'function') scheduleBackup();
   const t = db.transaction(storeName, mode), out = fn(t.objectStore(storeName));
-  t.oncomplete = () => res(out && out.result);
+  t.oncomplete = () => { if (storeName === 'records' && mode === 'readwrite') syncNotify(); res(out && out.result); };
   t.onerror = t.onabort = () => rej(t.error);
 });
 
@@ -576,7 +603,7 @@ async function mergeRecordsIn(list) {
 function hideToast() {
   $('#toast').classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
 }
-function showToast(msg, actionText, actionFn) {
+function showToast(msg, actionText, actionFn, ms) {
   const t = $('#toast'), msgEl = $('#toastMsg'), actEl = $('#toastAction');
   // 開啟中的 modal <dialog> 位於 top layer，z-index 蓋不過它；
   // 把提示移進該 dialog 內，就能顯示在資料管理等視窗之上
@@ -595,7 +622,7 @@ function showToast(msg, actionText, actionFn) {
   // 原本整個提示都是 pointer-events-none，「復原」按鈕根本點不到
   t.classList.toggle('pointer-events-none', !hasAction);
   clearTimeout(window._tt);
-  window._tt = setTimeout(hideToast, hasAction ? 7000 : 4500);
+  window._tt = setTimeout(hideToast, ms || (hasAction ? 7000 : 4500));
 }
 
 /* Category mapping */
@@ -648,6 +675,7 @@ async function saveCustomCategories(type, names) {
   const next = { ...customCategories, [type]: names };
   await settingsPut({ key: 'customCategories', expense: next.expense, income: next.income });
   customCategories = next;
+  syncNotify();
 }
 
 async function addCustomCategory(type, name) {
@@ -1198,6 +1226,7 @@ async function getStoredBudget(ym) {
 
 async function saveStoredBudget(ym, amount) {
   await dbTx('settings', 'readwrite', s => s.put({ key: 'budget_' + ym, amount }));
+  syncNotify();
 }
 
 async function updateBudget() {
@@ -1492,20 +1521,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     e.target.value = '';
     if (!file) return;
     try {
-      const arr = JSON.parse(await file.text());
-      if (!Array.isArray(arr)) throw new Error();
-      const list = arr.map(sanitizeRecord).filter(Boolean);
-      if (!list.length) return showToast('JSON 沒有可匯入的有效紀錄');
+      const parsed = parseBackup(await file.text());
+      const list = parsed.records, st = parsed.settings;
+      if (!list.length && !st) return showToast('JSON 沒有可匯入的有效紀錄');
       const known = new Set(records.map(r => r.id));
       const overwrite = list.filter(r => r.id != null && known.has(r.id)).length;
-      if (!confirm(`準備匯入 ${list.length} 筆紀錄，其中 ${overwrite} 筆與現有 ID 相同會被覆蓋。匯入前會先暫存目前資料，可在「資料管理」還原。確定繼續？`)) return;
+      const parts = [`${list.length} 筆紀錄（${overwrite} 筆與現有 ID 相同會被覆蓋${parsed.skipped ? `，另有 ${parsed.skipped} 筆格式無效會略過` : ''}）`];
+      parts.push(st ? `設定：${describeSettings(st).join('、')}（預算同月份覆蓋、自訂類別合併）` : (parsed.version < 2 ? '此檔不含設定（舊版格式）' : '此檔不含設定'));
+      if (!confirm(`準備匯入 ${parts.join('；')}。${parsed.newer ? '注意：此備份來自較新版本，部分內容可能無法辨識。' : ''}匯入前會先暫存目前的記錄，可在「資料管理」還原。確定繼續？`)) return;
       await settingsPut({ key: 'pre-restore', data: records });
       await mergeRecordsIn(list);
-      renderLedger();
-      updateAnalytics();
-      updateBudget();
-      showToast(`已成功匯入 ${list.length} 筆資料`);
+      const applied = await applySettings(st);
+      refreshAll(); updateBackupUI();
+      showToast(`已匯入 ${list.length} 筆紀錄` + (applied.length ? `，並套用${applied.join('、')}` : ''));
     } catch (err) {
+      logError('import-json', err);
       showToast('檔案格式錯誤，無法順利匯入');
     }
   });
@@ -1519,18 +1549,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       const idNotice = hasIdColumn
         ? `同 ID 紀錄會覆蓋既有資料${missingIds ? `；${missingIds} 列沒有有效 ID，會新增為新紀錄` : ''}`
         : 'CSV 不含 ID，會新增為新紀錄；重複匯入可能產生重複資料';
-      if (!confirm(`準備匯入 ${imported.length} 筆紀錄。${idNotice}。${skipped ? `另有 ${skipped} 列格式無效會略過。` : ''}確定繼續？`)) return;
+      if (!confirm(`準備匯入 ${imported.length} 筆紀錄。${idNotice}。${skipped ? `另有 ${skipped} 列格式無效會略過。` : ''}CSV 只含記錄，不含預算與設定。匯入前會先暫存目前的記錄，可在「資料管理」還原。確定繼續？`)) return;
+      await settingsPut({ key: 'pre-restore', data: records });
       await mergeRecordsIn(imported);
-      renderLedger(); updateAnalytics(); updateBudget();
+      renderLedger(); updateAnalytics(); updateBudget(); updateBackupUI();
       showToast(`CSV 已匯入 ${imported.length} 筆` + (skipped ? `，略過 ${skipped} 列無效資料` : ''));
     } catch (err) {
+      logError('import-csv', err);
       showToast('CSV 格式錯誤，請確認欄位包含日期、類型、類別、金額、備註');
     }
   });
 
   // PWA Service Worker Registration
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // 已有舊版 SW 接管時，新版 SW 接手代表有新版本；首次安裝不提示
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) showToast('有新版本可用', '立即更新', () => location.reload(), 60000);
+    });
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      let lastCheck = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && Date.now() - lastCheck > 36e5) { lastCheck = Date.now(); reg.update().catch(() => {}); }
+      });
+    }).catch(e => logError('sw', e));
   }
   if (shortcutAction === 'expense' || shortcutAction === 'income') $('#manualAmount').focus({ preventScroll: true });
 });
@@ -1540,10 +1582,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     <h3 class="font-bold">編輯紀錄</h3>
     <div class="grid grid-cols-2 gap-2">
       <select id="eType" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><option value="expense">支出</option><option value="income">收入</option></select>
-      <input id="eAmount" type="number" inputmode="decimal" step="any" min="0" required placeholder="金額" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+      <input id="eAmount" type="number" inputmode="decimal" enterkeyhint="next" step="any" min="0" required placeholder="金額" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
     </div>
     <select id="eCat" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
-    <div class="grid grid-cols-2 gap-2"><input id="eDate" type="date" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><input id="eNote" maxlength="100" placeholder="備註" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></div>
+    <div class="grid grid-cols-2 gap-2"><input id="eDate" type="date" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><input id="eNote" maxlength="100" enterkeyhint="done" autocomplete="off" placeholder="備註" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></div>
     <div class="flex gap-2">
       <button type="button" id="eDel" class="px-4 py-3 rounded-xl text-orange-600 bg-orange-50 dark:bg-slate-800 font-semibold">刪除</button>
       <button type="button" id="eCancel" class="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 font-semibold">取消</button>
@@ -1705,8 +1747,9 @@ document.addEventListener('DOMContentLoaded', () => {
       <button type="button" id="bkClose" title="關閉" aria-label="關閉" class="w-10 h-10 flex-none p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">✕</button>
     </div>
     <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
+    <p class="text-xs text-slate-400">JSON 含記錄、預算、自訂類別與外觀設定（自動備份檔格式相同）；CSV 只含記錄，可用 Excel 開啟。</p>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON</button>
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON 到備份資料夾</button>
       <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
       <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
       <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
@@ -1724,6 +1767,16 @@ document.addEventListener('DOMContentLoaded', () => {
     <h4 class="font-semibold text-sm pt-2">App 內快照（最近 7 份）</h4>
     <p class="text-xs text-slate-400">快照存在這個瀏覽器裡，清除網站資料時會一起消失，不能取代匯出備份。</p>
     <div id="bkSnaps" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    <details id="bkDiag" class="border-t border-slate-100 dark:border-slate-800 pt-3">
+      <summary class="text-sm font-semibold cursor-pointer">診斷資訊</summary>
+      <div class="mt-2 space-y-2">
+        <pre id="bkDiagText" class="whitespace-pre-wrap break-all text-xs bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2 max-h-48 overflow-y-auto"></pre>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="bkDiagCopy" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">複製診斷資訊</button>
+          <button type="button" id="bkDiagClear" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">清除錯誤紀錄</button>
+        </div>
+      </div>
+    </details>
     <div class="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-2">
       <p class="text-xs text-slate-500 dark:text-slate-400">只刪除記帳明細；預算、外觀設定與備份快照會保留。</p>
       <button type="button" id="btnClearRecords" class="w-full px-4 py-3 rounded-xl text-orange-600 bg-orange-50 dark:bg-slate-800 dark:text-orange-400 font-semibold">刪除所有記錄</button>
@@ -1774,13 +1827,89 @@ let bkPending = false, datedStale = false, lastDatedDay = '';
 const settingsGet = k => dbTx('settings', 'readonly', s => s.get(k));
 const settingsPut = o => dbTx('settings', 'readwrite', s => s.put(o));
 
+/* ---------- 統一的備份格式 ----------
+   JSON（手動匯出、備份資料夾 latest／日期檔）一律是同一種 v2 結構：
+   { app, version, exportedAt, records: [...], settings: { budgets, customCategories, backupReminderDays, theme, colorMode } }
+   匯入同時相容 v1（純記錄陣列）。CSV 只含記錄；App 內快照也只含記錄。 */
+const BACKUP_APP = 'smart-ledger', BACKUP_VERSION = 2;
+const backupName = (ext, tag) => 'smart-ledger_' + (tag || ymd()) + '.' + ext;
+
+async function collectSettings() {
+  const out = { customCategories: { expense: [...customCategories.expense], income: [...customCategories.income] } };
+  try {
+    const rd = await settingsGet('backupReminderDays');
+    if (rd && Number.isInteger(rd.days)) out.backupReminderDays = rd.days;
+    const rows = (await dbTx('settings', 'readonly', s => s.getAll(IDBKeyRange.bound('budget_', 'budget_\uffff')))) || [];
+    const budgets = {};
+    rows.forEach(b => { const m = /^budget_(\d{4}-\d{2})$/.exec(b.key); if (m && isFinite(b.amount) && b.amount >= 0) budgets[m[1]] = b.amount; });
+    if (Object.keys(budgets).length) out.budgets = budgets;
+  } catch (e) { logError('settings', e); }
+  try {
+    out.theme = localStorage.getItem('ledger_theme') || '';
+    out.colorMode = localStorage.getItem('ledger_color_mode') || 'system';
+  } catch (e) {}
+  return out;
+}
+async function backupText(list = records) {
+  return JSON.stringify({ app: BACKUP_APP, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), records: list, settings: await collectSettings() }, null, 2);
+}
+function sanitizeSettings(x) {
+  if (!x || typeof x !== 'object') return null;
+  const out = {};
+  if (x.customCategories && typeof x.customCategories === 'object') out.customCategories = { expense: cleanNames(x.customCategories.expense), income: cleanNames(x.customCategories.income) };
+  if (x.budgets && typeof x.budgets === 'object') {
+    const budgets = {};
+    Object.entries(x.budgets).forEach(([k, v]) => { const n = Number(v); if (/^\d{4}-\d{2}$/.test(k) && isFinite(n) && n >= 0 && n <= 1e10) budgets[k] = n; });
+    if (Object.keys(budgets).length) out.budgets = budgets;
+  }
+  const d = Number(x.backupReminderDays);
+  if (Number.isInteger(d) && d >= 1 && d <= 365) out.backupReminderDays = d;
+  if (typeof x.theme === 'string' && (x.theme === '' || THEME_OPTIONS.includes(x.theme))) out.theme = x.theme;
+  if (COLOR_MODES.includes(x.colorMode)) out.colorMode = x.colorMode;
+  return Object.keys(out).length ? out : null;
+}
+function parseBackup(text) {
+  const raw = JSON.parse(String(text).replace(/^\uFEFF/, ''));
+  let list, rawSettings = null, version = 1;
+  if (Array.isArray(raw)) list = raw;
+  else if (raw && typeof raw === 'object' && Array.isArray(raw.records)) {
+    if (raw.app && raw.app !== BACKUP_APP) throw new Error('not a ledger backup');
+    list = raw.records; rawSettings = raw.settings; version = Number(raw.version) || 1;
+  } else throw new Error('unrecognized format');
+  const recs = list.map(sanitizeRecord).filter(Boolean);
+  return { records: recs, skipped: list.length - recs.length, settings: sanitizeSettings(rawSettings), version, newer: version > BACKUP_VERSION };
+}
+function describeSettings(st) {
+  const a = [];
+  if (st.budgets) a.push(`預算 ${Object.keys(st.budgets).length} 個月`);
+  if (st.customCategories) a.push('自訂類別');
+  if (st.backupReminderDays) a.push('備份提醒天數');
+  if ('theme' in st || st.colorMode) a.push('外觀');
+  return a;
+}
+async function applySettings(st) {
+  if (!st) return [];
+  if (st.customCategories) {
+    const merged = {};
+    ['expense', 'income'].forEach(t => { merged[t] = [...new Set([...(customCategories[t] || []), ...st.customCategories[t]])]; });
+    await settingsPut({ key: 'customCategories', expense: merged.expense, income: merged.income });
+    customCategories = merged;
+  }
+  if (st.budgets) await dbTx('settings', 'readwrite', s => { Object.entries(st.budgets).forEach(([ym, amount]) => s.put({ key: 'budget_' + ym, amount })); });
+  if (st.backupReminderDays) await settingsPut({ key: 'backupReminderDays', days: st.backupReminderDays });
+  if ('theme' in st) applyTheme(st.theme, true);
+  if (st.colorMode) applyColorMode(st.colorMode, true);
+  syncNotify();
+  return describeSettings(st);
+}
+
 function scheduleBackup() { bkPending = true; clearTimeout(bkTimer); bkTimer = setTimeout(() => runBackup(), 1500); }
 async function markExport() { await settingsPut({ key: 'lastExport', at: Date.now() }); updateBackupUI(); }
 
 async function runBackup(forceDated = false) {
   bkPending = false;
   if (!records.length) return null;
-  const day = ymd(), data = JSON.stringify(records, null, 2);
+  const day = ymd(), data = await backupText(records);
   try {
     await settingsPut({ key: 'snap:' + day, data: records });
     const keys = (await dbTx('settings', 'readonly', s => s.getAllKeys())).filter(k => String(k).startsWith('snap:')).sort();
@@ -1805,12 +1934,12 @@ async function writeFolder(data, day, withDated = true) {
     if (await backupHandle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
     needPerm = false;
     const put = async (name, text) => { const w = await (await backupHandle.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
-    await put('ledger-latest.json', data);
+    await put(backupName('json', 'latest'), data);
     if (!withDated) return true;
-    await put('ledger-' + day + '.json', data);
+    await put(backupName('json', day), data);
     const cut = ymd(new Date(Date.now() - 6 * 864e5)), names = [];
     for await (const [name] of backupHandle.entries()) names.push(name);
-    for (const n of names) { const m = n.match(/^ledger-(\d{4}-\d{2}-\d{2})\.json$/); if (m && m[1] < cut) await backupHandle.removeEntry(n); }
+    for (const n of names) { const m = n.match(/^(?:smart-ledger_|ledger-)(\d{4}-\d{2}-\d{2})\.json$/); if (m && m[1] < cut) await backupHandle.removeEntry(n); }
     return true;
   } catch (e) { return false; }
 }
@@ -1850,7 +1979,7 @@ async function getBackupDirectory(selectIfMissing, requestPermission) {
     if (permission !== 'granted') { needPerm = true; return null; }
     needPerm = false;
     return backupHandle;
-  } catch (e) { if (e.name !== 'AbortError') needPerm = true; return null; }
+  } catch (e) { if (e.name !== 'AbortError') { needPerm = true; logError('folder', e); } return null; }
 }
 
 function downloadExport(file) {
@@ -1869,33 +1998,37 @@ function canShareFile(file) {
   } catch (e) { return false; }
 }
 
-const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
+const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON 到備份資料夾' : '下載 JSON 備份';
 
 async function exportJSONToFolder() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
-  const file = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
+  const name = backupName('json');
+  const mk = async () => new File([await backupText(records)], name, { type: 'application/json' });
   if (!window.showDirectoryPicker) {
-    downloadExport(file);
+    downloadExport(await mk());
     await markExport();
     return showToast('此瀏覽器無法寫入資料夾，已改為下載 JSON');
   }
   // 第一個 await 就要是 getBackupDirectory：選資料夾／要求權限都需要點擊手勢
   const dir = await getBackupDirectory(true, true);
   if (!dir) { updateBackupUI(); return showToast('未選擇資料夾或未授權，沒有匯出'); }
+  let file = null;
   try {
-    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
+    file = await mk();
+    const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
     await writable.write(file); await writable.close();
     await markExport();
-    showToast('已匯出到備份資料夾：' + file.name);
+    showToast('已匯出到備份資料夾：' + name);
   } catch (e) {
-    showToast(`寫入資料夾失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { downloadExport(file); markExport(); });
+    logError('export', e);
+    showToast(`寫入資料夾失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', async () => { downloadExport(file || await mk()); markExport(); });
   }
 }
 
 async function exportCSVShare() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
   // MIME 不要帶 ;charset=…，否則 canShare 常回傳 false（BOM 已確保 Excel 開啟不亂碼）
-  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv' });
+  const file = new File([buildCSV(records)], backupName('csv'), { type: 'text/csv' });
   await shareExportFile(file, '記帳備份 CSV');
 }
 
@@ -1919,6 +2052,7 @@ async function shareExportFile(file, title) {
     const saved = await savePromise;
     if (saved) await markExport();
     if (e && e.name === 'AbortError') return showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享');
+    logError('share', e);
     // 分享失敗時已不在點擊手勢內，改讓使用者再點一次來下載最穩
     showToast(`分享失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { downloadExport(file); markExport(); });
   }
@@ -2010,6 +2144,39 @@ async function restoreSnap(snap) {
   $('#backupDlg').close(); refreshAll(); showToast('已還原 ' + list.length + ' 筆資料');
 }
 
+const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+async function buildDiagnostics() {
+  const nav = navigator, L = [];
+  L.push('時間：' + new Date().toLocaleString('zh-TW'));
+  L.push('環境：' + nav.userAgent);
+  L.push('模式：' + ((matchMedia('(display-mode: standalone)').matches || nav.standalone) ? 'PWA（獨立視窗）' : '瀏覽器分頁'));
+  L.push('記錄筆數：' + records.length);
+  try { if (nav.storage && nav.storage.estimate) { const e = await nav.storage.estimate(); L.push(`儲存空間：已用 ${fmtBytes(e.usage || 0)} / 配額 ${fmtBytes(e.quota || 0)}`); } } catch (e) {}
+  try { if (nav.storage && nav.storage.persisted) L.push('持久儲存：' + ((await nav.storage.persisted()) ? '已啟用' : '未啟用')); } catch (e) {}
+  try { if ('caches' in window) L.push('快取版本：' + ((await caches.keys()).join(', ') || '無')); } catch (e) {}
+  L.push('Service Worker：' + ('serviceWorker' in nav ? (nav.serviceWorker.controller ? '運作中' : '未接管') : '不支援'));
+  L.push(`API：share=${typeof nav.share} canShare=${typeof nav.canShare} 資料夾=${!!window.showDirectoryPicker} 多視窗同步=${!!syncCh}`);
+  const log = errorLog();
+  L.push('', `最近錯誤（${log.length}）：`);
+  log.forEach(x => L.push(`${new Date(x.t).toLocaleString('zh-TW')} [${x.kind}] ${x.name ? x.name + '：' : ''}${x.msg}${x.stack ? '\n    ' + x.stack : ''}`));
+  return L.join('\n');
+}
+async function renderDiagnostics() { $('#bkDiagText').textContent = await buildDiagnostics(); }
+
+let syncTimer = null;
+async function reloadFromStorage() {
+  if (!db) return;
+  try {
+    const list = ((await dbTx('records', 'readonly', s => s.getAll())) || []).map(sanitizeRecord).filter(Boolean);
+    records = list;
+    lastId = list.reduce((m, r) => Math.max(m, r.id || 0), lastId);
+    const cc = await settingsGet('customCategories');
+    if (cc) customCategories = { expense: cleanNames(cc.expense), income: cleanNames(cc.income) };
+    if ($('#editDlg').open && editing && !records.some(r => r.id === editing.id)) { $('#editDlg').close(); showToast('這筆紀錄已在其他視窗被刪除'); }
+    refreshAll(); updateBackupUI();
+  } catch (e) { logError('sync', e); }
+}
+
 async function updateBackupUI() {
   const le = ((await settingsGet('lastExport')) || {}).at || 0;
   const rec = await settingsGet('dirHandle');
@@ -2052,6 +2219,13 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && records.length && (bkPending || datedStale)) { clearTimeout(bkTimer); runBackup(true); }
   });
+  $('#bkDiag').addEventListener('toggle', e => { if (e.target.open) renderDiagnostics(); });
+  $('#bkDiagCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(await buildDiagnostics()); showToast('診斷資訊已複製'); }
+    catch (e) { showToast('無法自動複製，請長按文字手動複製'); }
+  };
+  $('#bkDiagClear').onclick = () => { try { localStorage.removeItem(ERR_LOG_KEY); } catch (e) {} renderDiagnostics(); showToast('錯誤紀錄已清除'); };
+  if (syncCh) syncCh.onmessage = () => { clearTimeout(syncTimer); syncTimer = setTimeout(reloadFromStorage, 300); };
   $('#bkExportJson').textContent = jsonBtnText();
   $('#bkExportJson').onclick = exportJSONToFolder;
   $('#btnClearRecords').onclick = clearAllRecords;
