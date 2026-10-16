@@ -821,17 +821,19 @@ function renderLedger() {
 
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right';
+    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.style.alignItems = 'flex-start'; info.style.textAlign = 'left';
     info.onclick = () => openEdit(r);
     const title = document.createElement('div');
     title.className = 'w-full font-semibold text-base truncate';
-    title.style.textAlign = 'right';
+    title.style.textAlign = 'left';
     title.textContent = r.category;
 
     const note = document.createElement('div');
     note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate';
-    note.style.textAlign = 'right';
-    note.textContent = r.note || '無備註';
+    note.style.textAlign = 'left';
+    note.style.minHeight = '1.25rem';   // 沒有備註時留白，但保持每列高度一致
+    note.textContent = r.note || '';
 
     info.append(title, note);
 
@@ -839,7 +841,8 @@ function renderLedger() {
     right.className = 'flex items-center gap-2 flex-none';
 
     const amountDate = document.createElement('div');
-    amountDate.className = 'flex min-w-[112px] flex-col items-end';
+    amountDate.className = 'flex min-w-[112px] flex-col items-end text-right';
+    amountDate.style.alignItems = 'flex-end'; amountDate.style.textAlign = 'right';
 
     const amount = document.createElement('div');
     amount.className = `font-bold text-lg tabular-nums ${r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`;
@@ -884,17 +887,20 @@ function renderAuxRecordList(container, list, emptyText) {
     row.className = 'flex items-center justify-between gap-2 py-3.5';
     const info = document.createElement('button');
     info.type = 'button';
-    info.className = 'flex min-w-0 flex-1 flex-col items-end text-right';
+    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.style.alignItems = 'flex-start'; info.style.textAlign = 'left';
     info.onclick = () => openEdit(r);
     const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate');
-    const note = createElementWithText('span', r.note || '無備註', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
-    category.style.textAlign = 'right';
-    note.style.textAlign = 'right';
+    const note = createElementWithText('span', r.note || '', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
+    category.style.textAlign = 'left';
+    note.style.textAlign = 'left';
+    note.style.minHeight = '1.25rem';
     info.append(category, note);
     const right = document.createElement('div');
     right.className = 'flex items-center gap-2 flex-none';
     const amountDate = document.createElement('div');
-    amountDate.className = 'flex min-w-[112px] flex-col items-end';
+    amountDate.className = 'flex min-w-[112px] flex-col items-end text-right';
+    amountDate.style.alignItems = 'flex-end'; amountDate.style.textAlign = 'right';
     const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-lg tabular-nums ' + (r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'));
     const date = createElementWithText('span', r.date, 'text-sm text-slate-500 dark:text-slate-400');
     amountDate.append(amount, date);
