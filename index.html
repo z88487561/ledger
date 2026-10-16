@@ -1749,7 +1749,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
     <p class="text-xs text-slate-400">JSON 含記錄、預算、自訂類別與外觀設定（自動備份檔格式相同）；CSV 只含記錄，可用 Excel 開啟。</p>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON 到備份資料夾</button>
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON</button>
       <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
       <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
       <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
@@ -1998,7 +1998,7 @@ function canShareFile(file) {
   } catch (e) { return false; }
 }
 
-const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON 到備份資料夾' : '下載 JSON 備份';
+const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
 
 async function exportJSONToFolder() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
