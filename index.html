@@ -1706,7 +1706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON 並分享</button>
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON</button>
       <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
       <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
       <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
@@ -1869,10 +1869,27 @@ function canShareFile(file) {
   } catch (e) { return false; }
 }
 
-async function exportJSONShare() {
+const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
+
+async function exportJSONToFolder() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
   const file = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
-  await shareExportFile(file, '記帳備份 JSON');
+  if (!window.showDirectoryPicker) {
+    downloadExport(file);
+    await markExport();
+    return showToast('此瀏覽器無法寫入資料夾，已改為下載 JSON');
+  }
+  // 第一個 await 就要是 getBackupDirectory：選資料夾／要求權限都需要點擊手勢
+  const dir = await getBackupDirectory(true, true);
+  if (!dir) { updateBackupUI(); return showToast('未選擇資料夾或未授權，沒有匯出'); }
+  try {
+    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
+    await writable.write(file); await writable.close();
+    await markExport();
+    showToast('已匯出到備份資料夾：' + file.name);
+  } catch (e) {
+    showToast(`寫入資料夾失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { downloadExport(file); markExport(); });
+  }
 }
 
 async function exportCSVShare() {
@@ -2008,9 +2025,9 @@ async function updateBackupUI() {
   const stale = records.length > 0 && days >= reminderDays;
   banner.classList.toggle('hidden', !(stale || (rec && needPerm)));
   if (rec && needPerm) { $('#bannerText').textContent = '備份資料夾需要重新授權才能自動備份'; btn.textContent = '重新授權'; btn.onclick = regrant; }
-  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = '匯出 JSON 並分享'; btn.onclick = exportJSONShare; }
+  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = jsonBtnText(); btn.onclick = exportJSONToFolder; }
   $('#bkStatus').textContent = '最近一次外部備份：' + (le ? new Date(le).toLocaleString('zh-TW') : '尚未備份');
-  $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「匯出並分享」備份。'
+  $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「下載 JSON 備份」或「匯出 CSV 並分享」備份。'
     : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
   $('#bkPick').classList.toggle('hidden', !window.showDirectoryPicker);
   const snaps = ((await dbTx('settings', 'readonly', s => s.getAll())) || []).filter(o => String(o.key).startsWith('snap:') || o.key === 'pre-restore').sort((a, b) => a.key === 'pre-restore' ? -1 : b.key === 'pre-restore' ? 1 : a.key < b.key ? 1 : -1);
@@ -2035,7 +2052,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && records.length && (bkPending || datedStale)) { clearTimeout(bkTimer); runBackup(true); }
   });
-  $('#bkExportJson').onclick = exportJSONShare;
+  $('#bkExportJson').textContent = jsonBtnText();
+  $('#bkExportJson').onclick = exportJSONToFolder;
   $('#btnClearRecords').onclick = clearAllRecords;
   $('#bkShare').onclick = exportCSVShare; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
 });
