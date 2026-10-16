@@ -1,5 +1,5 @@
 // 改版時把版本號 +1，使用者下次開啟就會更新快取
-const CACHE = 'ledger-v7';
+const CACHE = 'ledger-v8';
 const ASSETS = ['./', 'index.html', 'tailwind.css', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -22,7 +22,7 @@ self.addEventListener('fetch', e => {
   // 靜態檔：先給快取，同時背景更新
   e.respondWith(caches.open(CACHE).then(async c => {
     const hit = await c.match(req, { ignoreSearch: true });
-    const net = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
+    const net = fetch(req).then(res => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit || Response.error());
     return hit || net;
   }));
 });

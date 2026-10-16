@@ -401,7 +401,7 @@
 </main>
 
 <!-- Toast Notification -->
-<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-6 bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm z-50 max-w-[92vw] transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+<div id="toast" role="status" aria-live="polite" class="fixed left-1/2 -translate-x-1/2 bottom-6 bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm z-50 max-w-[92vw] transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
   <span id="toastMsg" class="flex-1"></span>
   <button id="toastAction" type="button" class="font-bold underline text-teal-400 dark:text-teal-600 hidden"></button>
 </div>
@@ -573,19 +573,29 @@ async function mergeRecordsIn(list) {
 }
 
 /* ---------- UI Controller & Renderers ---------- */
+function hideToast() {
+  $('#toast').classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+}
 function showToast(msg, actionText, actionFn) {
   const t = $('#toast'), msgEl = $('#toastMsg'), actEl = $('#toastAction');
+  // 開啟中的 modal <dialog> 位於 top layer，z-index 蓋不過它；
+  // 把提示移進該 dialog 內，就能顯示在資料管理等視窗之上
+  const host = document.querySelector('dialog[open]') || document.body;
+  if (t.parentElement !== host) host.append(t);
   msgEl.textContent = msg;
-  if (actionText && actionFn) {
+  const hasAction = !!(actionText && actionFn);
+  if (hasAction) {
     actEl.textContent = actionText;
-    actEl.onclick = () => { t.classList.add('translate-y-20', 'opacity-0'); actionFn(); };
+    actEl.onclick = () => { hideToast(); actionFn(); };
     actEl.classList.remove('hidden');
   } else {
     actEl.classList.add('hidden');
   }
   t.classList.remove('translate-y-20', 'opacity-0');
+  // 原本整個提示都是 pointer-events-none，「復原」按鈕根本點不到
+  t.classList.toggle('pointer-events-none', !hasAction);
   clearTimeout(window._tt);
-  window._tt = setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 4500);
+  window._tt = setTimeout(hideToast, hasAction ? 7000 : 4500);
 }
 
 /* Category mapping */
@@ -1196,7 +1206,7 @@ async function updateBudget() {
   $('#budgetMonthLabel').textContent = ym + ' 預算';
 
   const budgetLimit = await getStoredBudget(ym);
-  $('#budgetInput').value = budgetLimit || '';
+  if (document.activeElement !== $('#budgetInput')) $('#budgetInput').value = budgetLimit || '';
 
   // Calculate current month expenses
   const monthExp = records
@@ -1217,15 +1227,16 @@ async function updateBudget() {
     statusText.className = 'text-xs font-medium text-center text-slate-400';
     insightText.textContent = '設定預算後，系統將為您智慧監控每月消費進度！';
   } else {
-    const pct = Math.min(Math.round((monthExp / budgetLimit) * 100), 100);
+    const ratio = monthExp / budgetLimit;
+    const pct = Math.min(Math.floor(ratio * 100), 100);
     bar.style.width = pct + '%';
     
-    if (pct >= 100) {
+    if (ratio >= 1) {
       bar.className = 'h-full bg-rose-500 rounded-full transition-all duration-500';
-      statusText.textContent = `⚠️ 本月預算已超支！已使用 ${pct}%`;
+      statusText.textContent = `⚠️ 本月預算已超支！已使用 ${Math.round(ratio * 100)}%`;
       statusText.className = 'text-xs font-bold text-center text-rose-500';
       insightText.textContent = '警報：本月支出已超越設定預算，建議減少非必要娛樂與購物開銷。';
-    } else if (pct >= 80) {
+    } else if (ratio >= 0.8) {
       bar.className = 'h-full bg-orange-500 rounded-full transition-all duration-500';
       statusText.textContent = `⚡ 接近預算上限，目前已使用 ${pct}%`;
       statusText.className = 'text-xs font-bold text-center text-orange-500';
@@ -1266,7 +1277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (shortcutAction === 'expense' || shortcutAction === 'income') manualType = shortcutAction;
   $('#manualDate').value = todayStr;
   $('#filterMonth').value = todayStr.slice(0, 7);
-  $('#recordSearchFrom').value = todayStr;
+  $('#recordSearchFrom').value = todayStr.slice(0, 4) + '-01-01';
   $('#recordSearchTo').value = todayStr;
 
   try {
@@ -1484,6 +1495,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const arr = JSON.parse(await file.text());
       if (!Array.isArray(arr)) throw new Error();
       const list = arr.map(sanitizeRecord).filter(Boolean);
+      if (!list.length) return showToast('JSON 沒有可匯入的有效紀錄');
+      const known = new Set(records.map(r => r.id));
+      const overwrite = list.filter(r => r.id != null && known.has(r.id)).length;
+      if (!confirm(`準備匯入 ${list.length} 筆紀錄，其中 ${overwrite} 筆與現有 ID 相同會被覆蓋。匯入前會先暫存目前資料，可在「資料管理」還原。確定繼續？`)) return;
+      await settingsPut({ key: 'pre-restore', data: records });
       await mergeRecordsIn(list);
       renderLedger();
       updateAnalytics();
@@ -1630,7 +1646,8 @@ function applyColorMode(mode, persist = false) {
 }
 async function clearAllRecords() {
   if (!records.length) return showToast('目前沒有記帳記錄');
-  if (!confirm(`確定刪除全部 ${records.length} 筆記帳明細嗎？此操作無法直接復原，既有備份快照仍會保留。`)) return;
+  if (!confirm(`確定刪除全部 ${records.length} 筆記帳明細嗎？刪除前會先暫存一份，可在「資料管理」還原。`)) return;
+  await settingsPut({ key: 'pre-restore', data: records });
   await dbTx('records', 'readwrite', s => s.clear());
   records = [];
   $('#backupDlg').close();
@@ -1674,7 +1691,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#editForm').addEventListener('submit', async e => {
     e.preventDefault();
     const u = sanitizeRecord({ id: editing.id, type: $('#eType').value, amount: $('#eAmount').value, category: $('#eCat').value, date: $('#eDate').value, note: $('#eNote').value });
-    if (!u) return;
+    if (!u) return showToast('資料不正確，請檢查金額與日期');
     await dbTx('records', 'readwrite', s => s.put(u));
     records = records.map(x => x.id === u.id ? u : x);
     $('#editDlg').close(); refreshAll(); showToast('已更新紀錄');
@@ -1753,13 +1770,15 @@ document.addEventListener('DOMContentLoaded', () => {
 </dialog>
 <script>
 let needPerm = false, bkTimer = null, persistAsked = false, backupHandle = null;
+let bkPending = false, datedStale = false, lastDatedDay = '';
 const settingsGet = k => dbTx('settings', 'readonly', s => s.get(k));
 const settingsPut = o => dbTx('settings', 'readwrite', s => s.put(o));
 
-function scheduleBackup() { clearTimeout(bkTimer); bkTimer = setTimeout(runBackup, 1500); }
+function scheduleBackup() { bkPending = true; clearTimeout(bkTimer); bkTimer = setTimeout(() => runBackup(), 1500); }
 async function markExport() { await settingsPut({ key: 'lastExport', at: Date.now() }); updateBackupUI(); }
 
-async function runBackup() {
+async function runBackup(forceDated = false) {
+  bkPending = false;
   if (!records.length) return null;
   const day = ymd(), data = JSON.stringify(records, null, 2);
   try {
@@ -1769,12 +1788,15 @@ async function runBackup() {
     if (old.length) await dbTx('settings', 'readwrite', s => { old.forEach(k => s.delete(k)); });
     if (!persistAsked && navigator.storage && navigator.storage.persist) { persistAsked = true; navigator.storage.persist().catch(() => {}); }
   } catch (e) {}
-  const written = await writeFolder(data, day);
+  // 每次變更只更新 latest；日期檔每天第一次與頁面進背景時才寫，避免每筆記帳都寫兩份＋掃描資料夾
+  const withDated = forceDated || lastDatedDay !== day;
+  const written = await writeFolder(data, day, withDated);
+  if (written) { if (withDated) lastDatedDay = day; datedStale = !withDated; }
   if (written) await markExport(); else updateBackupUI();
   return written;
 }
 
-async function writeFolder(data, day) {
+async function writeFolder(data, day, withDated = true) {
   if (!window.showDirectoryPicker) return false;
   try {
     const rec = await settingsGet('dirHandle');
@@ -1784,6 +1806,7 @@ async function writeFolder(data, day) {
     needPerm = false;
     const put = async (name, text) => { const w = await (await backupHandle.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
     await put('ledger-latest.json', data);
+    if (!withDated) return true;
     await put('ledger-' + day + '.json', data);
     const cut = ymd(new Date(Date.now() - 6 * 864e5)), names = [];
     for await (const [name] of backupHandle.entries()) names.push(name);
@@ -1832,61 +1855,56 @@ async function getBackupDirectory(selectIfMissing, requestPermission) {
 
 function downloadExport(file) {
   const url = URL.createObjectURL(file);
-  const a = document.createElement('a'); a.href = url; a.download = file.name;
-  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.style.display = 'none';
+  // modal dialog 開啟時，dialog 以外的元素是 inert；錨點放進 dialog 內才確保點得動
+  (document.querySelector('dialog[open]') || document.body).append(a);
+  a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 60000);
 }
 
-async function writeExport(file) {
-  const dir = await getBackupDirectory(true, true);
-  if (!dir) return false;
+function canShareFile(file) {
   try {
-    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
-    await writable.write(file); await writable.close();
-    return true;
+    return typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }));
   } catch (e) { return false; }
 }
 
 async function exportJSONShare() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
   const file = new File([JSON.stringify(records, null, 2)], 'smart_accounting_backup_' + ymd() + '.json', { type: 'application/json' });
-  await shareExportFile(file, file, '記帳備份 JSON');
+  await shareExportFile(file, '記帳備份 JSON');
 }
 
 async function exportCSVShare() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
-  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv;charset=utf-8' });
-  await shareExportFile(file, file, '記帳備份 CSV');
+  // MIME 不要帶 ;charset=…，否則 canShare 常回傳 false（BOM 已確保 Excel 開啟不亂碼）
+  const file = new File([buildCSV(records)], 'accounting_backup_' + ymd() + '.csv', { type: 'text/csv' });
+  await shareExportFile(file, '記帳備份 CSV');
 }
 
-async function shareExportFile(file, backupFile, title) {
-  let sharePromise = null;
+async function shareExportFile(file, title) {
+  const kind = file.name.endsWith('.json') ? 'JSON' : 'CSV';
+  // 注意：share()/下載必須在點擊手勢內「同步」發動，所以前面不能有 await
+  const savePromise = writeSavedExport(file);
+  if (!canShareFile(file)) {
+    downloadExport(file);
+    const saved = await savePromise;
+    await markExport();
+    showToast(saved ? `${kind} 已下載並存入備份資料夾` : `此瀏覽器無法分享 ${kind} 檔，已改為下載`);
+    return;
+  }
   try {
-    if (typeof navigator.share === 'function' && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-      sharePromise = navigator.share({ files: [file], title })
-        .then(() => ({ shared: true }), error => ({ error }));
-    }
-  } catch (e) {}
-  const saved = await writeSavedExport(backupFile);
-  if (sharePromise) {
-    const result = await sharePromise;
-    if (result.shared) {
-      await markExport();
-      updateBackupUI();
-      showToast(saved ? file.type === 'application/json' ? 'JSON 已分享並存入備份資料夾' : 'CSV 已分享，JSON 備份已存入資料夾'
-        : file.type === 'application/json' ? 'JSON 已分享，但備份資料夾寫入失敗' : 'CSV 已分享，但 JSON 備份資料夾寫入失敗');
-      return;
-    } else {
-      if (result.error.name === 'AbortError') {
-        if (saved) await markExport();
-        showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享');
-        return;
-      }
-      showToast('分享失敗（' + result.error.name + '），已改為下載 ' + (file.type === 'application/json' ? 'JSON' : 'CSV'));
-    }
-  } else showToast('此瀏覽器不支援檔案分享，已改為下載 ' + (file.type === 'application/json' ? 'JSON' : 'CSV'));
-  downloadExport(file);
-  await markExport();
-  updateBackupUI();
+    await navigator.share({ files: [file], title });
+    const saved = await savePromise;
+    await markExport();
+    showToast(saved ? `${kind} 已分享並存入備份資料夾` : `${kind} 已分享`);
+  } catch (e) {
+    const saved = await savePromise;
+    if (saved) await markExport();
+    if (e && e.name === 'AbortError') return showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享');
+    // 分享失敗時已不在點擊手勢內，改讓使用者再點一次來下載最穩
+    showToast(`分享失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { downloadExport(file); markExport(); });
+  }
 }
 
 async function writeSavedExport(file) {
@@ -1965,12 +1983,13 @@ function parseCSVRecords(text) {
   });
   return { records: imported, skipped, hasIdColumn: idIndex >= 0, missingIds };
 }
+const snapLabel = k => k === 'pre-restore' ? '還原／匯入／清空前的暫存' : k.slice(5);
 async function restoreSnap(snap) {
-  if (!confirm('還原到 ' + snap.key.slice(5) + ' 的資料？目前的資料會先暫存一份，之後可再還原。')) return;
+  if (!confirm('還原到 ' + snapLabel(snap.key) + ' 的資料？目前的資料會先暫存一份，之後可再還原。')) return;
   await settingsPut({ key: 'pre-restore', data: records });
   const list = snap.data.map(sanitizeRecord).filter(Boolean);
   await dbTx('records', 'readwrite', s => { s.clear(); list.forEach(r => s.put(r)); });
-  records = list; lastId = Math.max(0, ...list.map(r => r.id));
+  records = list; lastId = list.reduce((m, r) => Math.max(m, r.id || 0), 0);
   $('#backupDlg').close(); refreshAll(); showToast('已還原 ' + list.length + ' 筆資料');
 }
 
@@ -1994,10 +2013,10 @@ async function updateBackupUI() {
   $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「匯出並分享」備份。'
     : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
   $('#bkPick').classList.toggle('hidden', !window.showDirectoryPicker);
-  const snaps = ((await dbTx('settings', 'readonly', s => s.getAll())) || []).filter(o => String(o.key).startsWith('snap:')).sort((a, b) => a.key < b.key ? 1 : -1);
+  const snaps = ((await dbTx('settings', 'readonly', s => s.getAll())) || []).filter(o => String(o.key).startsWith('snap:') || o.key === 'pre-restore').sort((a, b) => a.key === 'pre-restore' ? -1 : b.key === 'pre-restore' ? 1 : a.key < b.key ? 1 : -1);
   $('#bkSnaps').replaceChildren(...(snaps.length ? snaps.map(sn => {
     const row = document.createElement('div'); row.className = 'flex items-center justify-between py-2 text-sm';
-    const t = document.createElement('span'); t.textContent = sn.key.slice(5) + ' · ' + sn.data.length + ' 筆';
+    const t = document.createElement('span'); t.textContent = snapLabel(sn.key) + ' · ' + sn.data.length + ' 筆';
     const b = document.createElement('button'); b.type = 'button'; b.className = 'px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; b.textContent = '還原'; b.onclick = () => restoreSnap(sn);
     row.append(t, b); return row;
   }) : [Object.assign(document.createElement('div'), { className: 'py-3 text-sm text-slate-400', textContent: '還沒有快照，記下第一筆後就會自動建立。' })]));
@@ -2013,6 +2032,9 @@ document.addEventListener('DOMContentLoaded', () => {
     await updateBackupUI();
     showToast('備份提醒已設為 ' + days + ' 天');
   };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && records.length && (bkPending || datedStale)) { clearTimeout(bkTimer); runBackup(true); }
+  });
   $('#bkExportJson').onclick = exportJSONShare;
   $('#btnClearRecords').onclick = clearAllRecords;
   $('#bkShare').onclick = exportCSVShare; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
