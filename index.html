@@ -1977,6 +1977,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <video id="scanVideo" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
       <div aria-hidden="true" style="position:absolute;inset:14%;border:2px solid rgba(255,255,255,.85);border-radius:.75rem;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div>
     </div>
+    <div id="scanCameraControls" class="hidden flex items-center gap-3">
+      <button type="button" id="scanTorch" aria-pressed="false" class="hidden shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold dark:bg-slate-800">開啟補光</button>
+      <label id="scanZoomWrap" class="hidden flex-1 items-center gap-2 text-sm">縮放<input type="range" id="scanZoom" class="min-w-0 flex-1" aria-label="相機縮放"></label>
+    </div>
     <p id="scanStatus" role="status" class="text-sm text-slate-500 dark:text-slate-400"></p>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="scanAuto"> 掃描後直接記帳（不需再確認）</label>
     <div class="grid grid-cols-2 gap-2">
@@ -2396,7 +2400,7 @@ async function applyInvoice(inv) {
   }
 }
 
-const scanState = { stream: null, raf: 0, detector: null, canvas: null, left: null, right: null, leftAt: 0, busy: false, last: 0, done: false };
+const scanState = { stream: null, raf: 0, detector: null, canvas: null, left: null, right: null, leftAt: 0, busy: false, last: 0, frame: 0, torchOn: false, done: false };
 const setScanStatus = t => { $('#scanStatus').textContent = t; };
 function loadJsQR() {
   if (window.jsQR) return Promise.resolve(window.jsQR);
@@ -2418,21 +2422,21 @@ async function prepareDecoder() {
   await loadJsQR();
 }
 // deep=true（相簿照片）：原生偵測失敗時再用 jsQR 以多種縮放嘗試
-async function decodeSource(src, w, h, deep) {
+async function decodeSource(src, w, h, deep, forceJsQR = false) {
   const out = [];
   if (scanState.detector) {
     try { (await scanState.detector.detect(src)).forEach(b => { if (b.rawValue) out.push(b.rawValue); }); } catch (e) {}
-    if (out.length || !deep) return out;
+    if (out.some(code => parseInvoiceQR(code)) || (!deep && !forceJsQR)) return out;
   }
   const jsQR = window.jsQR || await loadJsQR();
   const cv = scanState.canvas || (scanState.canvas = document.createElement('canvas'));
-  for (const W of (deep ? [1600, 1000, 640] : [800])) {
+  for (const W of (deep ? [1600, 1200, 800, 480] : [1280])) {
     const sc = Math.min(1, W / w);
     cv.width = Math.max(1, Math.round(w * sc)); cv.height = Math.max(1, Math.round(h * sc));
     const ctx = cv.getContext('2d', { willReadFrequently: true });
     ctx.drawImage(src, 0, 0, cv.width, cv.height);
     const img = ctx.getImageData(0, 0, cv.width, cv.height);
-    const r = jsQR(img.data, img.width, img.height, { inversionAttempts: deep ? 'attemptBoth' : 'dontInvert' });
+    const r = jsQR(img.data, img.width, img.height, { inversionAttempts: deep || forceJsQR ? 'attemptBoth' : 'dontInvert' });
     if (r) {
       const data = r.data || (r.binaryData && new TextDecoder().decode(Uint8Array.from(r.binaryData)));
       if (data) { out.push(data); break; }
@@ -2465,15 +2469,65 @@ function stopScanner() {
   cancelAnimationFrame(scanState.raf);
   if (scanState.stream) scanState.stream.getTracks().forEach(t => t.stop());
   scanState.stream = null;
+  scanState.torchOn = false;
+  $('#scanCameraControls').classList.add('hidden');
+  $('#scanTorch').hidden = true;
+  $('#scanTorch').setAttribute('aria-pressed', 'false');
+  $('#scanTorch').textContent = '開啟補光';
+  $('#scanZoomWrap').hidden = true;
   const v = $('#scanVideo'); v.srcObject = null;
+}
+async function configureScanCamera() {
+  const track = scanState.stream && scanState.stream.getVideoTracks()[0];
+  if (!track) return;
+  let caps = {};
+  try { if (track.getCapabilities) caps = track.getCapabilities(); } catch (e) {}
+  if (caps.focusMode && caps.focusMode.includes('continuous')) {
+    try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+  }
+  let hasControls = false;
+  if (caps.torch) {
+    $('#scanTorch').hidden = false;
+    hasControls = true;
+  }
+  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+    const input = $('#scanZoom'), settings = track.getSettings ? track.getSettings() : {};
+    input.min = caps.zoom.min;
+    input.max = caps.zoom.max;
+    input.step = caps.zoom.step || 0.1;
+    input.value = settings.zoom || caps.zoom.min;
+    $('#scanZoomWrap').hidden = false;
+    hasControls = true;
+  }
+  if (hasControls) $('#scanCameraControls').classList.remove('hidden');
+}
+async function setScanTorch(enabled) {
+  const track = scanState.stream && scanState.stream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: enabled }] });
+    scanState.torchOn = enabled;
+    $('#scanTorch').textContent = enabled ? '關閉補光' : '開啟補光';
+    $('#scanTorch').setAttribute('aria-pressed', String(enabled));
+  } catch (e) {
+    logError('scan', e);
+    setScanStatus('無法切換補光，請調整環境光線');
+  }
+}
+async function setScanZoom(value) {
+  const track = scanState.stream && scanState.stream.getVideoTracks()[0];
+  if (!track) return;
+  try { await track.applyConstraints({ advanced: [{ zoom: Number(value) }] }); }
+  catch (e) { logError('scan', e); }
 }
 function scanLoop(ts) {
   if (!scanState.stream) return;
   scanState.raf = requestAnimationFrame(scanLoop);
   const v = $('#scanVideo');
-  if (scanState.busy || ts - scanState.last < 160 || v.readyState < 2 || !v.videoWidth) return;
+  if (scanState.busy || ts - scanState.last < 220 || v.readyState < 2 || !v.videoWidth) return;
   scanState.last = ts; scanState.busy = true;
-  decodeSource(v, v.videoWidth, v.videoHeight, false)
+  const forceJsQR = !scanState.detector || ++scanState.frame % 5 === 0;
+  decodeSource(v, v.videoWidth, v.videoHeight, false, forceJsQR)
     .then(codes => {
       handleScanCodes(codes);
       // 左側讀到後再多等 1 秒看有沒有一起讀到右側 QR（更多品項）
@@ -2483,17 +2537,21 @@ function scanLoop(ts) {
     .finally(() => { scanState.busy = false; });
 }
 async function openScanner() {
-  Object.assign(scanState, { left: null, right: null, leftAt: 0, busy: false, last: 0, done: false });
+  Object.assign(scanState, { left: null, right: null, leftAt: 0, busy: false, last: 0, frame: 0, torchOn: false, done: false });
+  $('#scanCameraControls').classList.add('hidden');
+  $('#scanTorch').hidden = true;
+  $('#scanZoomWrap').hidden = true;
   $('#scanAuto').checked = localStorage.getItem('ledger_scan_auto') === '1';
   setScanStatus('正在開啟相機…');
   $('#scanDlg').showModal();
   try {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('此環境無法使用相機（需要 HTTPS）'), { name: 'NoCamera' });
-    scanState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    scanState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
     if (!$('#scanDlg').open) { stopScanner(); return; }
     const v = $('#scanVideo');
     v.srcObject = scanState.stream;
     await v.play();
+    await configureScanCamera();
     await prepareDecoder();
     setScanStatus('把發票左側（或右側）的 QR code 放進框內');
     scanState.raf = requestAnimationFrame(scanLoop);
