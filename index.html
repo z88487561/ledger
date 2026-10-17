@@ -645,6 +645,7 @@ function getCategoriesFor(type) {
 }
 
 /* 近 30 天常用備註：同類型、依「目前選的類別」優先，再依次數與最近使用排序；輸入文字時變成自動建議 */
+let manualBusy = false;
 function renderNoteChips() {
   const wrap = $('#noteChips'); if (!wrap) return;
   const input = $('#manualNote');
@@ -666,7 +667,8 @@ function renderNoteChips() {
   if (!list.length) { wrap.replaceChildren(); return; }
   const label = document.createElement('span');
   label.className = 'flex-none text-xs text-slate-400';
-  label.textContent = cur ? '符合的備註' : '常用備註';
+  const hasAmount = parseFloat($('#manualAmount').value) > 0;
+  label.textContent = hasAmount ? '點選即記帳' : (cur ? '符合的備註' : '常用備註');
   wrap.replaceChildren(label, ...list.map(c => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -674,7 +676,19 @@ function renderNoteChips() {
     b.style.cssText = 'max-width:12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
     b.title = c.note + '（近 30 天用過 ' + c.n + ' 次）';
     b.textContent = c.note;
-    b.onclick = () => { input.value = c.note.slice(0, 100); input.dispatchEvent(new Event('input')); };
+    b.onclick = () => {
+      input.value = c.note.slice(0, 100);
+      if (parseFloat($('#manualAmount').value) > 0) {
+        // 已填金額：點備註 = 以目前選的類別直接新增（等同按「新增記帳紀錄」，新增後可復原）
+        if (manualBusy) return;
+        const form = $('#manualForm');
+        if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      } else {
+        // 還沒填金額：只填入備註，並把游標移到金額欄
+        input.dispatchEvent(new Event('input'));
+        $('#manualAmount').focus();
+      }
+    };
     return b;
   }));
 }
@@ -1490,10 +1504,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   $('#manualNote').addEventListener('input', renderNoteChips);
+  $('#manualAmount').addEventListener('input', renderNoteChips);
 
   // Manual Form Submit
   $('#manualForm').addEventListener('submit', async e => {
     e.preventDefault();
+    if (manualBusy) return;
     const amount = round2(parseFloat($('#manualAmount').value));
     if (!(amount > 0)) return showToast('請輸入大於 0 的金額');
     const newR = {
@@ -1504,7 +1520,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       amount,
       note: $('#manualNote').value.trim()
     };
-    await dbTx('records', 'readwrite', s => s.put(newR));
+    manualBusy = true;
+    try { await dbTx('records', 'readwrite', s => s.put(newR)); } finally { manualBusy = false; }
     records.push(newR);
     $('#manualAmount').value = '';
     $('#manualNote').value = '';
@@ -1514,7 +1531,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderLedger();
     updateAnalytics();
     updateBudget();
-    showToast(`成功新增：${newR.category} ${newR.type === 'income' ? '+' : '-'}${fmt(newR.amount)}`);
+    showToast(`成功新增：${newR.category} ${newR.type === 'income' ? '+' : '-'}${fmt(newR.amount)}`, '復原', () => undoAdd(newR));
   });
 
   // Filter List Events
