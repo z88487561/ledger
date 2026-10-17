@@ -26,6 +26,11 @@
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+  @keyframes scanLaser {
+    0% { transform: translateY(-60px); opacity: 0.2; }
+    50% { transform: translateY(60px); opacity: 0.9; }
+    100% { transform: translateY(-60px); opacity: 0.2; }
+  }
 
   html[data-theme] body { background-color: var(--theme-page); }
   html[data-theme] .bg-teal-600 { background-color: var(--theme-accent) !important; }
@@ -212,7 +217,10 @@
     <!-- Quick NLP Input Card -->
     <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <form id="quickForm" autocomplete="off" class="space-y-2">
-        <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
+        <div class="flex items-center justify-between">
+          <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
+          <button type="button" id="btnScanInvoice" class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">📷 掃描發票</button>
+        </div>
         <div class="flex gap-2">
           <input id="quickInput" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +30000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
           <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-600/20 transition">記</button>
@@ -439,13 +447,14 @@ expense: [
       '早餐', '午餐', '晚餐', '消夜', '飲料', '點心', '咖啡', '便當', '手搖', '餐', '吃', 
       '火鍋', '燒肉', '麥當勞', '壽司', '臭豆腐', '伙食費', '飯', '麵', '小吃', 
       '鹹酥雞', '珍奶', '手搖飲', '自助餐', '早午餐', '下午茶', '外送', 'ubereats', 
-      'foodpanda', '全家', '7-11', '萊爾富', 'ok超商', '超商', '咖啡廳', '餐廳'
+      'foodpanda', '全家', '7-11', '萊爾富', 'ok超商', '超商', '咖啡廳', '餐廳',
+      '麵包', '三明治', '飯糰', '關東煮', '奶茶', '可樂', '薯條', '豆漿', '拿鐵', '美式', '茶'
     ]],
     ['交通', [
       '捷運', '公車', '火車', '高鐵', '台鐵', '計程車', 'uber', '加油', '停車', 
       '悠遊卡', '機車', '客運', '過路費', 'ubike', 'youbike', '租車', 'iRent', 
       '共享機車', 'gogoro', '台鐵', '高鐵', '捷運', '高捷', '北捷', '加油站', 
-      'e-tag', 'etag', '停車費', '拖吊'
+      'e-tag', 'etag', '停車費', '拖吊', '汽油', '柴油', '無鉛'
     ]],
     ['日用品', [
       '日用', '衛生紙', '洗衣', '洗髮', '牙膏', '超市', '全聯', '家樂福', 'costco', 
@@ -453,7 +462,7 @@ expense: [
       '大潤發', '清潔', '沐浴乳', '洗面乳', '垃圾袋', '頭髮', 'ikea'
     ]],
     ['購物', [
-      '衣', '鞋', '蝦皮', 'momo', '網購', '購物', '包包', '3c', '電腦', '手機', 
+      '衣', '鞋', '褲', '蝦皮', 'momo', '網購', '購物', '包包', '3c', '電腦', '手機', 
       'pchome', 'yahoo', '淘寶', 'coupang', '酷澎', '服飾', '衣服', '褲子', 
       '眼鏡', '彩妝', '保養品', '百貨公司', 'sogo', '新光三越', '遠百', 'outlet', '思夢樂', '無印', '工具'
     ]],
@@ -528,10 +537,11 @@ function parseQuickInput(input, opt) {
 
 /* ---------- Data Store & State ---------- */
 const DEFAULTS = {
-  expense: [['餐飲','🍜'],['交通','🚇'],['購物','🛍️'],['日用品','🧴'],['娛樂','🎮'],['居住','🏠'],['醫療','💊'],['學習','📚'],['其他','🏷️']],
+  expense: [['餐飲','🍜'],['交通','🚇'],['購物','🛍️'],['日用品','🧴'],['娛樂','🎮'],['居住','🏠'],['醫療','💊'],['學習','📚'],['發票','🧾'],['其他','🏷️']],
   income: [['薪資','💼'],['獎金','🎁'],['投資','📈'],['兼職','🧑‍💻'],['其他','💰']]
 };
 const ALIAS = { '伙食': '🍜', '薪水': '💼' };
+const INVOICE_CATEGORY = '發票';   // 掃描發票找不到適合類別時使用的預設類別
 const iconFor = (type, name) => (DEFAULTS[type].find(c => c[0] === name) || [0, ALIAS[name] || '🏷️'])[1];
 
 let db = null, records = [], lastId = 0;
@@ -664,9 +674,12 @@ function getCategoriesFor(type) {
 
 /* 近 30 天常用備註：只列「目前選的類別」用過的備註，依次數與最近使用排序；輸入文字時變成自動建議 */
 let manualBusy = false;
+let pendingInvoice = null;   // 掃描發票後帶入表單、尚待使用者確認的發票
 function renderNoteChips() {
   const wrap = $('#noteChips'); if (!wrap) return;
   const input = $('#manualNote');
+  // 「發票」類別的備註都是各式品名，沒有重複使用的意義，不顯示常用備註
+  if (selectedCategory === INVOICE_CATEGORY) { wrap.classList.add('hidden'); wrap.replaceChildren(); return; }
   const cut = ymd(new Date(Date.now() - 30 * 864e5)), m = new Map();
   records.forEach(r => {
     const note = String(r.note || '').trim();
@@ -1501,7 +1514,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       preview.textContent = `${iconFor(p.type, p.category)} ${p.category}　${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}　${p.date === todayStr ? '今天' : p.date}${p.note ? '　' + p.note : ''}`;
       preview.className = 'text-xs text-teal-600 dark:text-teal-400 font-medium';
     } else {
-      preview.textContent = '請加上金額，例如「午餐 120」或「薪水 +50000」';
+      preview.textContent = '請加上金額，例如「午餐 120」或「薪水 +30000」';
       preview.className = 'text-xs text-orange-500';
     }
   });
@@ -1541,6 +1554,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     manualBusy = true;
     try { await dbTx('records', 'readwrite', s => s.put(newR)); } finally { manualBusy = false; }
     records.push(newR);
+    // 若這筆是剛掃描帶入的發票（支出、金額沒被改過、10 分鐘內）：記下「發票號碼 → 這筆紀錄」，並在記完後重新開啟掃描
+    let reopenScanner = false;
+    if (pendingInvoice) {
+      const pi = pendingInvoice; pendingInvoice = null;
+      if (newR.type === 'expense' && newR.amount === pi.total && Date.now() - pi.at < 10 * 60e3) {
+        rememberInvoice(pi, newR.category, newR.id).catch(e => logError('invoice', e));
+        reopenScanner = true;
+      }
+    }
     $('#manualAmount').value = '';
     $('#manualNote').value = '';
     $('#manualDate').value = todayStr;
@@ -1549,6 +1571,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderLedger();
     updateAnalytics();
     updateBudget();
+    if (reopenScanner) openScanner();   // 先開掃描視窗，下面的提示才會顯示在視窗內
     showToast(`成功新增：${newR.category} ${newR.type === 'income' ? '+' : '-'}${fmt(newR.amount)}`, '復原', () => undoAdd(newR));
   });
 
@@ -1958,6 +1981,41 @@ document.addEventListener('DOMContentLoaded', () => {
     </fieldset>
   </div>
 </dialog>
+<dialog id="scanDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold">掃描電子發票</h3>
+      <button type="button" id="scanClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <div id="scanVideoWrap" style="position:relative;background:#000;border-radius:.75rem;overflow:hidden;aspect-ratio:4/3">
+      <video id="scanVideo" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+      <div id="scanBanner" aria-hidden="true" style="display:none;position:absolute;left:0;right:0;bottom:0;z-index:2;padding:.55rem .75rem;background:#000;text-align:center;line-height:1.35">
+        <div id="scanBannerTitle" style="font-size:1.15rem;font-weight:800;color:#4ade80"></div>
+        <div id="scanBannerText" style="font-size:.9rem;font-weight:600;color:#fff"></div>
+      </div>
+      <div id="scanBox" aria-hidden="true" style="position:absolute;inset:12%;border:2px solid rgba(255,255,255,.9);border-radius:.75rem;box-shadow:0 0 0 999px rgba(0,0,0,.35);pointer-events:none">
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <div style="width:100%;height:2px;background:#14b8a6;box-shadow:0 0 8px #14b8a6;animation:scanLaser 2.2s linear infinite"></div>
+        </div>
+      </div>
+    </div>
+    <div id="scanCameraControls" class="hidden flex items-center gap-3">
+      <button type="button" id="scanTorch" aria-pressed="false" class="hidden shrink-0 rounded-lg bg-slate-100 px-3 py-2 text-sm font-semibold dark:bg-slate-800">開啟補光</button>
+      <label id="scanZoomWrap" class="hidden flex flex-1 items-center gap-2 text-sm">縮放<input type="range" id="scanZoom" class="min-w-0 flex-1" aria-label="相機縮放"></label>
+    </div>
+    <div class="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-900/40 p-2.5 text-xs text-amber-800 dark:text-amber-200 flex items-start gap-2 leading-relaxed">
+      <span class="text-sm shrink-0">💡</span>
+      <div>
+        <strong>注意事項：</strong>掃描很難成功的話，試著先掃左側 QR code，再依指示掃右側 QR code，即可正確記帳。
+      </div>
+    </div>
+    <p id="scanStatus" role="status" class="text-sm text-slate-800 dark:text-slate-100 font-semibold"></p>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="scanAuto"> 掃描後直接記帳（不需再確認）</label>
+    <div>
+      <button type="button" id="scanCancel" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">關閉</button>
+    </div>
+  </div>
+</dialog>
 <script>
 let needPerm = false, bkTimer = null, persistAsked = false, backupHandle = null;
 let bkPending = false, datedStale = false, lastDatedDay = '';
@@ -2286,6 +2344,411 @@ async function restoreSnap(snap) {
   $('#backupDlg').close(); refreshAll(); showToast('已還原 ' + list.length + ' 筆資料');
 }
 
+/* ==================== 掃描電子發票（QR code）====================
+   電子發票證明聯上有兩個 QR：
+   - 左側：前 77 碼為固定欄位——字軌 10、開立日期 7（民國 yyyMMdd）、隨機碼 4、銷售額 8（16 進位）、
+     總計 8（16 進位）、買方統編 8、賣方統編 8、加密資訊 24；之後以 ":" 接
+     「營業人自用區、本 QR 品目數、總品目數、編碼(0 Big5／1 UTF-8／2 Base64)」，再接「品名:數量:單價」重複。
+   - 右側：以 "**" 開頭，接續左側放不下的其餘品目（沒有更多品目時內容只有 "**"）。
+   流程：掃到左側（必要）→ 再多等 1.2 秒看有沒有右側（品項較完整）→ 帶入手動記帳表單 → 使用者確認新增後再次開啟掃描。 */
+
+/** 把掃描結果轉成文字。jsQR 會給原始 bytes，可依發票宣告的編碼（Big5／UTF-8）正確解碼中文；
+    BarcodeDetector 只給字串（Big5 發票可能出現亂碼 U+FFFD，之後由 isGarbled 判斷並優先採用較乾淨的結果）。 */
+function decodeQRText(raw, preferredEnc) {
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw.trim();
+  const bytes = raw.binaryData;
+  if (!bytes || !bytes.length) return String(raw.data || '').trim();
+  const decode = (label, fatal = false) => new TextDecoder(label, { fatal }).decode(Uint8Array.from(bytes)).trim();
+
+  // 發票字軌與控制欄位都是 ASCII，先取前 120 byte 判斷是左側還是右側 QR，以及左側宣告的編碼
+  let asciiHead = '';
+  for (let i = 0; i < Math.min(bytes.length, 120); i++) asciiHead += String.fromCharCode(bytes[i]);
+
+  if (/^[A-Z]{2}\d{8}/.test(asciiHead) && bytes.length >= 77) {          // 左側
+    const ext = asciiHead.slice(77);
+    if (ext.startsWith(':')) {
+      const enc = ext.slice(1).split(':')[3] || '1';
+      try { if (enc === '0') return decode('big5'); if (enc === '1') return decode('utf-8'); } catch (e) {}
+    }
+  } else if (asciiHead.startsWith('**')) {                                // 右側：沿用左側的編碼，沒有就先試 UTF-8 再退回 Big5
+    try { if (preferredEnc === '0') return decode('big5'); return decode('utf-8', true); }
+    catch (e) { try { return decode('big5'); } catch (err) {} }
+  }
+
+  // 其他情況（例如 Base64 編碼的品名本身是 ASCII）：jsQR 的字串沒有亂碼就直接用，否則再嘗試 UTF-8／Big5
+  if (raw.data && !raw.data.includes('\uFFFD')) return raw.data.trim();
+  try { return decode('utf-8', true); }
+  catch (e) { try { return decode('big5'); } catch (err) {} }
+  return String(raw.data || asciiHead).trim();
+}
+
+/** 解析「品名:數量:單價」三個一組的欄位；編碼為 2 時品名是 Base64。含亂碼（U+FFFD）的品名直接略過，避免備註出現亂碼 */
+function invoiceItems(fields, enc) {
+  const out = [];
+  for (let i = 0; i < fields.length; i += 3) {
+    let name = String(fields[i] || '').trim();
+    if (!name) continue;
+    if (enc === '2') {
+      try { name = new TextDecoder('utf-8').decode(Uint8Array.from(atob(name), c => c.charCodeAt(0))).trim(); } catch (e) {}
+    }
+    if (!name || name.includes('\uFFFD')) continue;
+    out.push({ name, qty: parseFloat(fields[i + 1]) || 1, price: parseFloat(fields[i + 2]) || 0 });
+  }
+  return out;
+}
+
+/** 解析一個 QR 文字。回傳 { kind:'left', no, date, total, seller, enc, items, rawText }、
+    { kind:'right', fields, rawText }，不是發票 QR 時回傳 null。 */
+function parseInvoiceQR(raw, preferredEnc) {
+  const text = decodeQRText(raw, preferredEnc).replace(/[\r\n]+/g, '').trim();
+  if (!text) return null;
+  if (text.startsWith('**')) return { kind: 'right', fields: text.replace(/^\*+:?/, '').split(':'), rawText: text };
+
+  const m = /^([A-Z]{2}\d{8})(\d{7})([0-9A-Za-z]{4})([0-9A-Fa-f]{8})([0-9A-Fa-f]{8})(\d{8})(\d{8})/.exec(text);
+  if (!m || text.length < 77) return null;
+  const y = parseInt(m[2].slice(0, 3), 10) + 1911, mo = +m[2].slice(3, 5), d = +m[2].slice(5, 7);
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;   // 日期不存在
+  const total = parseInt(m[5], 16);                                                              // 總計額（16 進位）
+  if (!(total > 0) || total > 1e8) return null;
+
+  let items = [], enc = '1';
+  const ext = text.slice(77);
+  if (ext.startsWith(':')) {
+    const f = ext.slice(1).split(':');   // [自用區, 本QR品目數, 總品目數, 編碼, 品名, 數量, 單價, ...]
+    enc = f[3] || '1';
+    items = invoiceItems(f.slice(4), enc);
+  }
+  return { kind: 'left', no: m[1], date: ymd(dt), total, seller: m[7], enc, items, rawText: text };
+}
+
+/* ---------- 已記帳發票與店家類別（只存在這台裝置，不含在 JSON 備份） ----------
+   invoices: { 發票號碼: 記帳紀錄的 id }  —— 重複判斷時會回頭檢查該紀錄「還存不存在」，刪除紀錄後再掃就不會誤報
+   sellers : { 賣方統編: { c: 類別, t: 時間 } } —— 同一間店下次掃描時自動帶入上次的類別
+   （舊版的 scanned 清單無法對應紀錄，已不再使用） */
+const INVOICE_LOG_MAX = 2000, SELLER_MAX = 500;
+const invoiceLog = async () => {
+  const o = await settingsGet('invoiceLog');
+  const obj = v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  return { invoices: obj(o && o.invoices), sellers: obj(o && o.sellers) };
+};
+const isInvoiceRecorded = (log, no) => log.invoices[no] != null && records.some(r => r.id === log.invoices[no]);
+const sellerCategory = (log, id) => { const v = log.sellers[id]; return typeof v === 'string' ? v : (v && v.c) || null; };
+
+async function rememberInvoice(pi, category, recordId) {
+  const log = await invoiceLog();
+  delete log.invoices[pi.no]; log.invoices[pi.no] = recordId;
+  const nos = Object.keys(log.invoices);   // 發票號碼含英文字母，物件會維持寫入順序，最舊的在最前面
+  nos.slice(0, Math.max(0, nos.length - INVOICE_LOG_MAX)).forEach(k => delete log.invoices[k]);
+  if (pi.seller && pi.seller !== '00000000' && category !== INVOICE_CATEGORY && category !== '其他') {
+    log.sellers[pi.seller] = { c: category, t: Date.now() };
+    // 統編是純數字，物件不保證寫入順序，所以用時間戳記找最舊的來淘汰
+    const ids = Object.keys(log.sellers).sort((a, b) => ((log.sellers[a] && log.sellers[a].t) || 0) - ((log.sellers[b] && log.sellers[b].t) || 0));
+    ids.slice(0, Math.max(0, ids.length - SELLER_MAX)).forEach(k => delete log.sellers[k]);
+  }
+  await settingsPut({ key: 'invoiceLog', invoices: log.invoices, sellers: log.sellers });
+}
+
+/** 把掃描到的發票帶入手動記帳表單；勾選「掃描後直接記帳」時直接送出 */
+async function applyInvoice(inv) {
+  const log = await invoiceLog();
+  if (isInvoiceRecorded(log, inv.no) && !confirm(`發票 ${inv.no} 已經記過帳了，要再記一次嗎？`)) { openScanner(); return; }
+
+  const note = [...new Set(inv.items.map(i => i.name))].join('、').slice(0, 100);
+  const catNames = getCategoriesFor('expense');
+  // 類別優先順序：同一間店上次記的類別 > 依品名關鍵字猜 > 都沒有就用「發票」類別
+  let cat = sellerCategory(log, inv.seller);
+  if (!catNames.includes(cat) || cat === '其他' || cat === INVOICE_CATEGORY) {
+    cat = null;
+    if (note) {
+      const g = parseQuickInput(note + ' ' + inv.total, { names: { expense: catNames, income: [] }, today: new Date() });
+      if (g.ok && g.type === 'expense' && g.category !== '其他' && g.category !== INVOICE_CATEGORY) cat = g.category;
+    }
+  }
+  if (!cat) cat = catNames.includes(INVOICE_CATEGORY) ? INVOICE_CATEGORY : (catNames[0] || '其他');
+
+  switchTab('record');
+  const typeBtn = document.querySelector('.type-btn[data-type="expense"]');
+  if (manualType !== 'expense' && typeBtn) typeBtn.click();   // 先切到支出（切換會重設類別），再帶入各欄位
+  $('#manualAmount').value = inv.total;
+  $('#manualDate').value = inv.date;
+  $('#manualNote').value = note;
+  selectedCategory = cat;
+  pendingInvoice = { no: inv.no, seller: inv.seller, total: inv.total, at: Date.now() };
+  renderCategoryChips();
+
+  const form = $('#manualForm');
+  if ($('#scanAuto').checked) {
+    if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  } else {
+    form.scrollIntoView({ block: 'center' });
+    showToast(`已帶入發票 ${fmt(inv.total)}（${cat}），確認後按「新增記帳紀錄」`, null, null, 6000);
+  }
+}
+
+/* ---------- 相機掃描 ---------- */
+// session：每次開啟掃描視窗遞增，用來丟棄上一輪還在解碼中的過期結果（避免重新開啟後立刻又讀到剛記完的那張）
+const scanState = { stream: null, raf: 0, detector: null, canvas: null, left: null, right: null, leftAt: 0, busy: false, last: 0, torchOn: false, done: false, session: 0 };
+const setHidden = (el, hide) => el.classList.toggle('hidden', hide);   // 這些元素是用 Tailwind 的 hidden class 隱藏，不能用 el.hidden 屬性
+const setScanStatus = t => { $('#scanStatus').textContent = t; };
+
+// 高對比提示：黑底、綠色大標題＋白字說明，蓋在相機畫面下緣
+function showScanBanner(title, text) {
+  $('#scanBannerTitle').textContent = title;
+  $('#scanBannerText').textContent = text;
+  $('#scanBanner').style.display = 'block';
+}
+const hideScanBanner = () => { $('#scanBanner').style.display = 'none'; };
+
+// 每讀到一個 QR 就提示：震動；沒有 Vibration API 的裝置（iOS Safari）改用短促提示音
+let scanAudio = null;
+function prepareScanAudio() {
+  if ('vibrate' in navigator) return;
+  try {
+    scanAudio = scanAudio || new (window.AudioContext || window.webkitAudioContext)();
+    if (scanAudio.state === 'suspended') scanAudio.resume();
+  } catch (e) {}
+}
+function scanFeedback() {
+  if ('vibrate' in navigator) { navigator.vibrate(120); return; }
+  if (!scanAudio) return;
+  try {
+    const osc = scanAudio.createOscillator(), gain = scanAudio.createGain();
+    osc.frequency.value = 880; gain.gain.value = 0.15;
+    osc.connect(gain); gain.connect(scanAudio.destination);
+    osc.start(); osc.stop(scanAudio.currentTime + 0.12);
+  } catch (e) {}
+}
+
+// jsQR 只在需要時才載入；載入失敗 5 秒內不重試，避免掃描迴圈每一格都重新下載
+let jsQRLoading = null, jsQRRetryAt = 0;
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  if (jsQRLoading) return jsQRLoading;
+  if (Date.now() < jsQRRetryAt) return Promise.reject(new Error('jsQR 載入失敗'));
+  jsQRLoading = new Promise((res, rej) => {
+    const el = document.createElement('script');
+    const fail = msg => { jsQRLoading = null; jsQRRetryAt = Date.now() + 5000; el.remove(); rej(new Error(msg)); };
+    el.src = 'jsQR.js';
+    el.onload = () => window.jsQR ? res(window.jsQR) : fail('jsQR 無法使用');
+    el.onerror = () => fail('jsQR 載入失敗');
+    document.head.append(el);
+  });
+  return jsQRLoading;
+}
+async function prepareDecoder() {
+  if (scanState.detector || window.jsQR) return;
+  if ('BarcodeDetector' in window) {
+    try {
+      if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) { scanState.detector = new BarcodeDetector({ formats: ['qr_code'] }); return; }
+    } catch (e) {}
+  }
+  await loadJsQR();
+}
+
+/** 取景框對應到相機原始畫面的裁切範圍（畫面以 object-fit: cover 顯示，需換算縮放與偏移，四周多留 8% 邊） */
+function getVideoCropRect(video, wrap, box) {
+  const vW = video.videoWidth, vH = video.videoHeight;
+  if (!vW || !vH) return null;
+  const wRect = wrap ? wrap.getBoundingClientRect() : null;
+  const bRect = box ? box.getBoundingClientRect() : null;
+  if (!wRect || !bRect || !wRect.width || !wRect.height) {   // 量不到版面時，退而取畫面中央 65%
+    const side = Math.min(vW, vH) * 0.65;
+    return { x: Math.round((vW - side) / 2), y: Math.round((vH - side) / 2), w: Math.round(side), h: Math.round(side) };
+  }
+  const scale = Math.max(wRect.width / vW, wRect.height / vH);
+  const offsetX = (wRect.width - vW * scale) / 2, offsetY = (wRect.height - vH * scale) / 2;
+  const pad = bRect.width * 0.08;
+  const cLeft = Math.max(0, (bRect.left - wRect.left) - pad), cTop = Math.max(0, (bRect.top - wRect.top) - pad);
+  const cRight = Math.min(wRect.width, (bRect.right - wRect.left) + pad), cBottom = Math.min(wRect.height, (bRect.bottom - wRect.top) + pad);
+  const vx = Math.max(0, Math.round((cLeft - offsetX) / scale)), vy = Math.max(0, Math.round((cTop - offsetY) / scale));
+  return { x: vx, y: vy, w: Math.min(vW - vx, Math.round((cRight - cLeft) / scale)), h: Math.min(vH - vy, Math.round((cBottom - cTop) / scale)) };
+}
+
+const isGarbled = r => (r.rawText || '').includes('\uFFFD');
+
+/** 處理一批掃描結果：記下左／右 QR、每讀到新的一個就提示。已讀到但含亂碼的內容，之後若讀到乾淨的版本會換掉 */
+function handleScanCodes(codes) {
+  const preferredEnc = scanState.left ? scanState.left.enc : null;
+  let gotNew = false;
+  codes.forEach(c => {
+    const r = parseInvoiceQR(c, preferredEnc);
+    if (!r) return;
+    const cur = scanState[r.kind];
+    if (!cur) {
+      scanState[r.kind] = r; gotNew = true;
+      if (r.kind === 'left') scanState.leftAt = Date.now();
+    } else if (isGarbled(cur) && !isGarbled(r) && (r.kind === 'right' || cur.no === r.no)) {
+      scanState[r.kind] = r;
+    }
+  });
+  if (gotNew) scanFeedback();
+  if (scanState.left && scanState.right) {
+    showScanBanner('✅ 兩個 QR 都讀到了', '正在帶入發票資料…');
+    setScanStatus('讀取完成，正在帶入…');
+  } else if (scanState.left) {
+    showScanBanner('✅ 左側 QR 已讀取', '可再掃右側 QR 補齊品項；不需要的話稍候會自動完成');
+    setScanStatus('已讀到發票！將右側 QR 移入框內可讀取更多品項…');
+  } else if (scanState.right) {
+    showScanBanner('✅ 右側 QR 已讀取', '請把框框移到「左側 QR」');
+    setScanStatus('已讀到右側品項，請將框框對準「左側 QR Code」');
+  }
+}
+
+/** 左側 QR 已讀到（右側可有可無）：合併品項、關閉掃描視窗、帶入表單 */
+function finishScan() {
+  if (scanState.done || !scanState.left) return;
+  scanState.done = true;
+  const l = scanState.left, r = scanState.right;
+  const items = l.items.slice();
+  if (r) items.push(...invoiceItems(r.fields, l.enc));
+  stopScanner();
+  $('#scanDlg').close();
+  applyInvoice({ ...l, items }).catch(e => { logError('invoice', e); showToast('發票資料帶入失敗'); });
+}
+
+function stopScanner() {
+  cancelAnimationFrame(scanState.raf);
+  if (scanState.stream) scanState.stream.getTracks().forEach(t => t.stop());
+  scanState.stream = null;
+  scanState.torchOn = false;
+  setHidden($('#scanCameraControls'), true);
+  setHidden($('#scanTorch'), true);
+  setHidden($('#scanZoomWrap'), true);
+  $('#scanTorch').setAttribute('aria-pressed', 'false');
+  $('#scanTorch').textContent = '開啟補光';
+  hideScanBanner();
+  $('#scanVideo').srcObject = null;
+}
+
+/** 依裝置能力開啟連續對焦、補光燈、縮放（預設約 1.8 倍，方便在 15～20 公分容易對焦的距離辨識小 QR） */
+async function configureScanCamera() {
+  const track = scanState.stream && scanState.stream.getVideoTracks()[0];
+  if (!track) return;
+  let caps = {};
+  try { if (track.getCapabilities) caps = track.getCapabilities(); } catch (e) {}
+  if (caps.focusMode && caps.focusMode.includes('continuous')) {
+    try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+  }
+  let hasControls = false;
+  if (caps.torch) { setHidden($('#scanTorch'), false); hasControls = true; }
+  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+    const input = $('#scanZoom'), settings = track.getSettings ? track.getSettings() : {};
+    input.min = caps.zoom.min;
+    input.max = caps.zoom.max;
+    input.step = caps.zoom.step || 0.1;
+    const defaultZoom = Math.min(caps.zoom.max, Math.max(caps.zoom.min, 1.8));
+    if (defaultZoom > caps.zoom.min) {
+      try { await track.applyConstraints({ advanced: [{ zoom: defaultZoom }] }); } catch (e) {}
+      input.value = defaultZoom;
+    } else {
+      input.value = settings.zoom || caps.zoom.min;
+    }
+    setHidden($('#scanZoomWrap'), false);
+    hasControls = true;
+  }
+  if (hasControls) setHidden($('#scanCameraControls'), false);
+}
+
+async function setScanTorch(enabled) {
+  const track = scanState.stream && scanState.stream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: enabled }] });
+    scanState.torchOn = enabled;
+    $('#scanTorch').textContent = enabled ? '關閉補光' : '開啟補光';
+    $('#scanTorch').setAttribute('aria-pressed', String(enabled));
+  } catch (e) {
+    logError('scan', e);
+    setScanStatus('無法切換補光，請調整環境光線');
+  }
+}
+
+async function setScanZoom(value) {
+  const track = scanState.stream && scanState.stream.getVideoTracks()[0];
+  if (!track) return;
+  try { await track.applyConstraints({ advanced: [{ zoom: Number(value) }] }); }
+  catch (e) { logError('scan', e); }
+}
+
+/** 掃描迴圈：約每 180ms 解碼一次。先把取景框範圍裁成約 480px 再交給 jsQR（運算量小、也避免兩顆 QR 互相干擾），
+    有 BarcodeDetector 時再另外辨識整個畫面。 */
+function scanLoop(ts) {
+  if (!scanState.stream) return;
+  scanState.raf = requestAnimationFrame(scanLoop);
+  const v = $('#scanVideo');
+  if (scanState.busy || ts - scanState.last < 180 || v.readyState < 2 || !v.videoWidth) return;
+  scanState.last = ts;
+  scanState.busy = true;
+  const session = scanState.session;
+
+  (async () => {
+    const crop = getVideoCropRect(v, $('#scanVideoWrap'), $('#scanBox'));
+    if (!crop || crop.w <= 0 || crop.h <= 0) return;
+
+    const cv = scanState.canvas || (scanState.canvas = document.createElement('canvas'));
+    const sc = Math.min(1, 480 / Math.max(crop.w, crop.h));
+    cv.width = Math.max(1, Math.round(crop.w * sc));
+    cv.height = Math.max(1, Math.round(crop.h * sc));
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(v, crop.x, crop.y, crop.w, crop.h, 0, 0, cv.width, cv.height);
+
+    const codes = [];
+    if (scanState.detector) {   // 原生偵測（整個畫面，可同時讀到左右兩個 QR）
+      try { (await scanState.detector.detect(v)).forEach(b => { if (b.rawValue) codes.push(b.rawValue); }); } catch (e) {}
+    }
+    const jsQR = window.jsQR || await loadJsQR().catch(() => null);   // jsQR 解取景框局部影像，並提供原始 bytes 以正確解碼 Big5
+    if (jsQR) {
+      const img = ctx.getImageData(0, 0, cv.width, cv.height);
+      const r = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      if (r) codes.push(r);
+    }
+
+    if (session !== scanState.session || scanState.done) return;   // 視窗已關閉或重新開啟，捨棄過期的結果
+    if (codes.length) {
+      handleScanCodes(codes);
+      if (scanState.left && (scanState.right || Date.now() - scanState.leftAt > 1200)) finishScan();
+    }
+  })()
+    .catch(e => logError('scan', e))
+    .finally(() => { if (session === scanState.session) scanState.busy = false; });
+}
+
+async function openScanner() {
+  Object.assign(scanState, { left: null, right: null, leftAt: 0, busy: false, last: 0, torchOn: false, done: false, session: scanState.session + 1 });
+  setHidden($('#scanCameraControls'), true);
+  setHidden($('#scanTorch'), true);
+  setHidden($('#scanZoomWrap'), true);
+  hideScanBanner();
+  prepareScanAudio();
+  $('#scanAuto').checked = localStorage.getItem('ledger_scan_auto') === '1';
+  setScanStatus('正在開啟相機…');
+  $('#scanDlg').showModal();
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('此環境無法使用相機（需要 HTTPS）'), { name: 'NoCamera' });
+    scanState.stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    if (!$('#scanDlg').open) { stopScanner(); return; }   // 等待相機授權期間使用者已關閉視窗
+    const v = $('#scanVideo');
+    v.srcObject = scanState.stream;
+    await v.play();
+    await configureScanCamera();
+    await prepareDecoder();
+    setScanStatus('請將框框只對準「左側 QR Code」（一次只掃一個）');
+    scanState.raf = requestAnimationFrame(scanLoop);
+  } catch (e) {
+    logError('scan', e);
+    stopScanner();
+    const msg = e && e.name === 'NotAllowedError' ? '沒有相機權限，請到瀏覽器設定允許存取相機'
+      : /jsQR/.test((e && e.message) || '') ? '辨識元件載入失敗，請確認網路連線後重試'
+      : '無法開啟相機（' + ((e && e.name) || '未知錯誤') + '），請確認瀏覽器支援與權限設定';
+    setScanStatus(msg);
+  }
+}
+
 const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 async function buildDiagnostics() {
   const nav = navigator, L = [];
@@ -2368,6 +2831,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('#bkDiagClear').onclick = () => { try { localStorage.removeItem(ERR_LOG_KEY); } catch (e) {} renderDiagnostics(); showToast('錯誤紀錄已清除'); };
   if (syncCh) syncCh.onmessage = () => { clearTimeout(syncTimer); syncTimer = setTimeout(reloadFromStorage, 300); };
+  $('#btnScanInvoice').onclick = openScanner;
+  $('#scanClose').onclick = $('#scanCancel').onclick = () => $('#scanDlg').close();
+  $('#scanDlg').addEventListener('close', stopScanner);
+  $('#scanAuto').onchange = e => { try { localStorage.setItem('ledger_scan_auto', e.target.checked ? '1' : '0'); } catch (err) {} };
+  $('#scanTorch').onclick = () => setScanTorch(!scanState.torchOn);
+  $('#scanZoom').oninput = e => setScanZoom(e.target.value);
   $('#bkExportJson').textContent = jsonBtnText();
   $('#bkExportJson').onclick = exportJSONToFolder;
   $('#btnClearRecords').onclick = clearAllRecords;
