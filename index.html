@@ -227,6 +227,8 @@
           <input id="manualDate" type="date" required class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
+        <div id="noteChips" role="group" aria-label="近 30 天常用備註" class="hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4"></div>
+
         <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl shadow-lg shadow-teal-600/25 transition">新增記帳紀錄</button>
       </form>
     </section>
@@ -642,6 +644,41 @@ function getCategoriesFor(type) {
   return [...map.values()].sort((a, b) => rank(a) - rank(b) || b.score - a.score || a.order - b.order).map(c => c.n);
 }
 
+/* 近 30 天常用備註：同類型、依「目前選的類別」優先，再依次數與最近使用排序；輸入文字時變成自動建議 */
+function renderNoteChips() {
+  const wrap = $('#noteChips'); if (!wrap) return;
+  const input = $('#manualNote');
+  const cut = ymd(new Date(Date.now() - 30 * 864e5)), m = new Map();
+  records.forEach(r => {
+    const note = String(r.note || '').trim();
+    if (!note || r.type !== manualType || r.date < cut) return;
+    const c = m.get(note) || { note, n: 0, inCat: false, last: '' };
+    c.n++; if (r.category === selectedCategory) c.inCat = true;
+    if (r.date > c.last) c.last = r.date;
+    m.set(note, c);
+  });
+  const cur = input.value.trim().toLowerCase();
+  const list = [...m.values()]
+    .filter(c => !cur || (c.note.toLowerCase().includes(cur) && c.note.toLowerCase() !== cur))
+    .sort((a, b) => (b.inCat - a.inCat) || (b.n - a.n) || (a.last < b.last ? 1 : -1))
+    .slice(0, 8);
+  wrap.classList.toggle('hidden', !list.length);
+  if (!list.length) { wrap.replaceChildren(); return; }
+  const label = document.createElement('span');
+  label.className = 'flex-none text-xs text-slate-400';
+  label.textContent = cur ? '符合的備註' : '常用備註';
+  wrap.replaceChildren(label, ...list.map(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'flex-none px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 active:scale-95 transition';
+    b.style.cssText = 'max-width:12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    b.title = c.note + '（近 30 天用過 ' + c.n + ' 次）';
+    b.textContent = c.note;
+    b.onclick = () => { input.value = c.note.slice(0, 100); input.dispatchEvent(new Event('input')); };
+    return b;
+  }));
+}
+
 function renderCategoryChips() {
   const names = getCategoriesFor(manualType);
   if (!names.includes(selectedCategory)) selectedCategory = names[0];
@@ -669,6 +706,7 @@ function renderCategoryChips() {
       return addBtn;
     })()
   );
+  renderNoteChips();
 }
 
 async function saveCustomCategories(type, names) {
@@ -789,6 +827,7 @@ async function deleteCustomCategory(type, name) {
 
 /* Render Main Ledger View */
 function renderLedger() {
+  renderNoteChips();
   renderFrequent();
   const filterMonth = $('#filterMonth').value;
   const filtered = sortRecords(records.filter(r => !filterMonth || r.date.startsWith(filterMonth)), $('#ledgerSort').value);
@@ -1450,6 +1489,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     showToast(`已快速記帳：${p.category} ${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}`);
   });
 
+  $('#manualNote').addEventListener('input', renderNoteChips);
+
   // Manual Form Submit
   $('#manualForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -1755,7 +1796,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
     <p class="text-xs text-slate-400">JSON 含記錄、預算、自訂類別與外觀設定（自動備份檔格式相同）；CSV 只含記錄，可用 Excel 開啟。</p>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON</button>
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON 到備份資料夾</button>
       <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
       <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
       <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
@@ -1774,9 +1815,9 @@ document.addEventListener('DOMContentLoaded', () => {
     <p class="text-xs text-slate-400">快照存在這個瀏覽器裡，清除網站資料時會一起消失，不能取代匯出備份。</p>
     <div id="bkSnaps" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
     <details id="bkDiag" class="border-t border-slate-100 dark:border-slate-800 pt-3">
-      <summary class="text-sm font-semibold cursor-pointer">診斷資訊</summary>
-      <div class="mt-2 space-y-2">
-        <pre id="bkDiagText" class="whitespace-pre-wrap break-all text-xs bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2 max-h-48 overflow-y-auto"></pre>
+      <summary style="cursor:pointer" class="text-sm font-semibold">診斷資訊</summary>
+      <div style="margin-top:.5rem" class="space-y-2">
+        <pre id="bkDiagText" style="white-space:pre-wrap;word-break:break-all;max-height:12rem;overflow-y:auto" class="whitespace-pre-wrap break-all text-xs bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2 max-h-48 overflow-y-auto"></pre>
         <div class="grid grid-cols-2 gap-2">
           <button type="button" id="bkDiagCopy" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">複製診斷資訊</button>
           <button type="button" id="bkDiagClear" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">清除錯誤紀錄</button>
@@ -2004,7 +2045,7 @@ function canShareFile(file) {
   } catch (e) { return false; }
 }
 
-const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
+const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON 到備份資料夾' : '下載 JSON 備份';
 
 async function exportJSONToFolder() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
