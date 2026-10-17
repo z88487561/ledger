@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>極簡智能記帳本</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="icon" href="icons/icon-512.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" sizes="180x180">
+<meta name="theme-color" content="#0d9488" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#042f2e" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="智慧記帳">
+<link rel="stylesheet" href="tailwind.css">
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button { touch-action: manipulation; }
+  #toast { bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+
+  html[data-theme] body { background-color: var(--theme-page); }
+  html[data-theme] .bg-teal-600 { background-color: var(--theme-accent) !important; }
+  html[data-theme] .hover\:bg-teal-700:hover { background-color: var(--theme-hover) !important; }
+  html[data-theme] .bg-teal-500 { background-color: var(--theme-accent) !important; }
+  html[data-theme] .bg-teal-50 { background-color: var(--theme-soft) !important; }
+  html[data-theme] .text-teal-600 { color: var(--theme-accent) !important; }
+  html[data-theme] .text-teal-400 { color: var(--theme-dark-accent) !important; }
+  html[data-theme] .border-teal-500 { border-color: var(--theme-accent) !important; }
+  html[data-theme] .border-teal-500\/20 { border-color: var(--theme-border-soft) !important; }
+  html[data-theme] [class~="dark:bg-teal-950/60"] { background-color: var(--theme-dark-soft) !important; }
+  html[data-theme] [class~="dark:text-teal-400"] { color: var(--theme-dark-accent) !important; }
+  html[data-theme] [class~="dark:text-teal-300"] { color: var(--theme-dark-accent) !important; }
+  html[data-theme] [class~="shadow-teal-500/20"],
+  html[data-theme] [class~="shadow-teal-600/20"],
+  html[data-theme] [class~="shadow-teal-600/25"] { --tw-shadow-color: var(--theme-shadow); }
+  html[data-theme] [class~="focus:ring-teal-500"]:focus { --tw-ring-color: var(--theme-accent); }
+  html[data-theme] [class~="focus-within:border-teal-500"]:focus-within { border-color: var(--theme-accent); }
+  html[data-theme] ::selection { background: var(--theme-accent); color: white; }
+  html[data-theme] .bg-gradient-to-tr.from-teal-600.to-emerald-500 {
+    background-image: linear-gradient(to top right, var(--theme-accent), var(--theme-dark-accent));
+  }
+  html[data-theme="red"] { --theme-accent:#a85f68; --theme-hover:#8f4c56; --theme-dark-accent:#d99aa0; --theme-soft:#f4e8e8; --theme-dark-soft:rgba(168,95,104,.18); --theme-page:#fbf5f4; --theme-border-soft:rgba(168,95,104,.2); --theme-shadow:rgba(168,95,104,.22); }
+  html[data-theme="orange"] { --theme-accent:#ad7658; --theme-hover:#925f45; --theme-dark-accent:#d9a17e; --theme-soft:#f5ece5; --theme-dark-soft:rgba(173,118,88,.18); --theme-page:#fbf7f2; --theme-border-soft:rgba(173,118,88,.2); --theme-shadow:rgba(173,118,88,.22); }
+  html[data-theme="yellow"] { --theme-accent:#967a3f; --theme-hover:#7d6633; --theme-dark-accent:#d0b56f; --theme-soft:#f4f0e2; --theme-dark-soft:rgba(150,122,63,.2); --theme-page:#faf8f0; --theme-border-soft:rgba(150,122,63,.22); --theme-shadow:rgba(150,122,63,.2); }
+  html[data-theme="green"] { --theme-accent:#5f806d; --theme-hover:#4c6958; --theme-dark-accent:#91b39b; --theme-soft:#e9f0eb; --theme-dark-soft:rgba(95,128,109,.2); --theme-page:#f4f8f5; --theme-border-soft:rgba(95,128,109,.2); --theme-shadow:rgba(95,128,109,.2); }
+  html[data-theme="blue"] { --theme-accent:#607d99; --theme-hover:#4d6882; --theme-dark-accent:#91aec8; --theme-soft:#e9eff4; --theme-dark-soft:rgba(96,125,153,.2); --theme-page:#f4f7fa; --theme-border-soft:rgba(96,125,153,.2); --theme-shadow:rgba(96,125,153,.2); }
+  html[data-theme="indigo"] { --theme-accent:#706e91; --theme-hover:#5a5878; --theme-dark-accent:#a5a2c4; --theme-soft:#eeedf4; --theme-dark-soft:rgba(112,110,145,.2); --theme-page:#f7f6fa; --theme-border-soft:rgba(112,110,145,.2); --theme-shadow:rgba(112,110,145,.2); }
+  html[data-theme="purple"] { --theme-accent:#92738f; --theme-hover:#785d75; --theme-dark-accent:#c2a0bc; --theme-soft:#f2ebf1; --theme-dark-soft:rgba(146,115,143,.2); --theme-page:#faf6f9; --theme-border-soft:rgba(146,115,143,.2); --theme-shadow:rgba(146,115,143,.2); }
+  html[data-theme="black"] { --theme-accent:#454545; --theme-hover:#303030; --theme-dark-accent:#b8b8b8; --theme-soft:#ededed; --theme-dark-soft:rgba(255,255,255,.1); --theme-page:#f5f5f5; --theme-border-soft:rgba(69,69,69,.2); --theme-shadow:rgba(0,0,0,.2); }
+  html[data-theme="white"] { --theme-accent:#777777; --theme-hover:#5f5f5f; --theme-dark-accent:#c4c4c4; --theme-soft:#f2f2f2; --theme-dark-soft:rgba(255,255,255,.12); --theme-page:#ffffff; --theme-border-soft:rgba(119,119,119,.2); --theme-shadow:rgba(119,119,119,.16); }
+  @media (prefers-color-scheme: dark) {
+    html[data-theme]:not([data-color-mode="light"]) body { background-color: #020617; }
+    html:not([data-color-mode="light"]) .mode-option.mode-selected { background-color: #334155; color: var(--theme-dark-accent, #5eead4); }
+  }
+  .mode-option.mode-selected { outline: 2px solid var(--theme-accent, #0d9488); outline-offset: -2px; }
+  html[data-color-mode="light"] { color-scheme: light; }
+  html[data-color-mode="light"] body { background-color: var(--theme-page, #f8fafc); color: #1e293b; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-950"] { background-color: var(--theme-page, #f8fafc) !important; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-900"] { background-color: #fff !important; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-900/80"] { background-color: rgba(255,255,255,.8) !important; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-800"],
+  html[data-color-mode="light"] [class~="dark:bg-slate-800/50"] { background-color: #f1f5f9 !important; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-800/60"] { background-color: rgba(248,250,252,.6) !important; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-700"] { background-color: #e2e8f0 !important; }
+  html[data-color-mode="light"] [class~="dark:bg-slate-100"] { background-color: #0f172a !important; }
+  html[data-color-mode="light"] [class~="dark:bg-teal-950/60"] { background-color: var(--theme-soft, #f0fdfa) !important; }
+  html[data-color-mode="light"] [class~="dark:bg-amber-950/40"] { background-color: #fffbeb !important; }
+  html[data-color-mode="light"] [class~="dark:text-slate-100"] { color: #1e293b !important; }
+  html[data-color-mode="light"] [class~="dark:text-slate-300"] { color: #475569 !important; }
+  html[data-color-mode="light"] [class~="dark:text-slate-400"],
+  html[data-color-mode="light"] [class~="dark:text-slate-500"] { color: #64748b !important; }
+  html[data-color-mode="light"] [class~="dark:text-slate-800"] { color: #1e293b !important; }
+  html[data-color-mode="light"] [class~="dark:text-slate-900"] { color: #f1f5f9 !important; }
+  html[data-color-mode="light"] [class~="dark:text-teal-400"],
+  html[data-color-mode="light"] [class~="dark:text-teal-300"] { color: var(--theme-accent, #0d9488) !important; }
+  html[data-color-mode="light"] [class~="dark:text-emerald-400"] { color: #059669 !important; }
+  html[data-color-mode="light"] [class~="dark:text-orange-400"] { color: #ea580c !important; }
+  html[data-color-mode="light"] [class~="dark:border-slate-800"],
+  html[data-color-mode="light"] [class~="dark:divide-slate-800"] > :not([hidden]) ~ :not([hidden]) { border-color: #e2e8f0 !important; }
+  html[data-color-mode="light"] [class~="dark:border-slate-700"] { border-color: #cbd5e1 !important; }
+  html[data-color-mode="light"] [class~="dark:border-slate-700/80"] { border-color: rgba(203,213,225,.8) !important; }
+  html[data-color-mode="light"] [class~="dark:border-amber-900"] { border-color: #fde68a !important; }
+  html[data-color-mode="light"] [class~="dark:hover:bg-slate-800"]:hover { background-color: #e2e8f0 !important; }
+  html[data-color-mode="light"] [class~="dark:hover:bg-slate-700"]:hover { background-color: #cbd5e1 !important; }
+  html[data-color-mode="dark"] { color-scheme: dark; }
+  html[data-color-mode="dark"] body { background-color: #020617 !important; color: #f1f5f9 !important; }
+  html[data-color-mode="dark"] .bg-white,
+  html[data-color-mode="dark"] .bg-white\/80,
+  html[data-color-mode="dark"] .bg-slate-50,
+  html[data-color-mode="dark"] [class~="dark:bg-slate-100"] { background-color: #0f172a !important; }
+  html[data-color-mode="dark"] .bg-slate-100,
+  html[data-color-mode="dark"] .bg-slate-200\/70,
+  html[data-color-mode="dark"] .bg-orange-50 { background-color: #1e293b !important; }
+  html[data-color-mode="dark"] .bg-slate-300 { background-color: #475569 !important; }
+  html[data-color-mode="dark"] .bg-amber-50 { background-color: rgba(69,26,3,.4) !important; }
+  html[data-color-mode="dark"] .bg-teal-50 { background-color: var(--theme-dark-soft, rgba(4,47,46,.6)) !important; }
+  html[data-color-mode="dark"] [class~="dark:bg-slate-950"] { background-color: #020617 !important; }
+  html[data-color-mode="dark"] [class~="dark:bg-slate-900"],
+  html[data-color-mode="dark"] [class~="dark:bg-slate-900/80"] { background-color: #0f172a !important; }
+  html[data-color-mode="dark"] [class~="dark:bg-slate-800"],
+  html[data-color-mode="dark"] [class~="dark:bg-slate-800/50"],
+  html[data-color-mode="dark"] [class~="dark:bg-slate-800/60"] { background-color: #1e293b !important; }
+  html[data-color-mode="dark"] [class~="dark:bg-slate-700"] { background-color: #334155 !important; }
+  html[data-color-mode="dark"] [class~="dark:bg-teal-950/60"] { background-color: var(--theme-dark-soft, rgba(4,47,46,.6)) !important; }
+  html[data-color-mode="dark"] [class~="dark:bg-amber-950/40"] { background-color: rgba(69,26,3,.4) !important; }
+  html[data-color-mode="dark"] .text-slate-800,
+  html[data-color-mode="dark"] .text-slate-600,
+  html[data-color-mode="dark"] [class~="dark:text-slate-100"] { color: #f1f5f9 !important; }
+  html[data-color-mode="dark"] .text-slate-500,
+  html[data-color-mode="dark"] .text-slate-400,
+  html[data-color-mode="dark"] [class~="dark:text-slate-300"] { color: #cbd5e1 !important; }
+  html[data-color-mode="dark"] [class~="dark:text-slate-400"],
+  html[data-color-mode="dark"] [class~="dark:text-slate-500"] { color: #94a3b8 !important; }
+  html[data-color-mode="dark"] [class~="dark:text-slate-800"] { color: #1e293b !important; }
+  html[data-color-mode="dark"] [class~="dark:text-slate-900"] { color: #f1f5f9 !important; }
+  html[data-color-mode="dark"] .text-teal-600,
+  html[data-color-mode="dark"] [class~="dark:text-teal-400"],
+  html[data-color-mode="dark"] [class~="dark:text-teal-300"] { color: var(--theme-dark-accent, #5eead4) !important; }
+  html[data-color-mode="dark"] .text-emerald-600,
+  html[data-color-mode="dark"] [class~="dark:text-emerald-400"] { color: #34d399 !important; }
+  html[data-color-mode="dark"] .text-orange-600,
+  html[data-color-mode="dark"] [class~="dark:text-orange-400"] { color: #fb923c !important; }
+  html[data-color-mode="dark"] .border-slate-100,
+  html[data-color-mode="dark"] .border-slate-200,
+  html[data-color-mode="dark"] .border-slate-200\/80,
+  html[data-color-mode="dark"] .border-slate-300,
+  html[data-color-mode="dark"] [class~="dark:border-slate-800"],
+  html[data-color-mode="dark"] [class~="dark:divide-slate-800"] > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b !important; }
+  html[data-color-mode="dark"] [class~="dark:border-slate-700"],
+  html[data-color-mode="dark"] [class~="dark:border-slate-700/80"] { border-color: #334155 !important; }
+  html[data-color-mode="dark"] [class~="dark:border-amber-900"] { border-color: #78350f !important; }
+  html[data-color-mode="dark"] [class~="dark:hover:bg-slate-800"]:hover { background-color: #334155 !important; }
+  html[data-color-mode="dark"] [class~="dark:hover:bg-slate-700"]:hover { background-color: #475569 !important; }
+  
+  /* 收入／支出顏色：預設值依淺色／深色模式不同；使用者自訂時以 --income-user / --expense-user 覆蓋（淺色深色共用） */
+  .c-income { color: var(--income-user, #059669); }
+  .c-expense { color: var(--expense-user, #ea580c); }
+  .bg-c-income { background-color: var(--income-user, #10b981); }
+  .bg-c-expense { background-color: var(--expense-user, #f97316); }
+  .fill-c-income { fill: var(--income-user, #10b981); }
+  .fill-c-expense { fill: var(--expense-user, #f97316); }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-color-mode="light"]) .c-income { color: var(--income-user, #34d399); }
+    html:not([data-color-mode="light"]) .c-expense { color: var(--expense-user, #fb923c); }
+  }
+  html[data-color-mode="dark"] .c-income { color: var(--income-user, #34d399); }
+  html[data-color-mode="dark"] .c-expense { color: var(--expense-user, #fb923c); }
+  .flow-swatch { width: 1.75rem; height: 1.75rem; border-radius: 9999px; border: 2px solid transparent; box-shadow: 0 0 0 1px rgba(148,163,184,.5); flex: none; }
+  .flow-swatch.flow-selected { box-shadow: 0 0 0 2px var(--theme-accent, #0d9488); border-color: #fff; }
+  .flow-color-input { width: 2.25rem; height: 1.75rem; padding: 0; border: 0; background: none; flex: none; }
+  .flow-default { font-size: .75rem; padding: .25rem .6rem; border-radius: .75rem; background: rgba(148,163,184,.18); flex: none; }
+  .flow-default.flow-selected { outline: 2px solid var(--theme-accent, #0d9488); outline-offset: -2px; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+</style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-between selection:bg-teal-500 selection:text-white">
+
+<header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+  <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white shadow-md shadow-teal-500/20">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </div>
+      <div>
+        <h1 class="font-bold text-lg leading-tight tracking-tight">智慧記帳本</h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400" id="headerSubtitle">個人財務極致管理</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-1.5">
+      <button id="btnPreferences" type="button" title="外觀設定" aria-label="外觀設定" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.36-6.36-1.42 1.42M7.06 16.94l-1.42 1.42m12.72 0-1.42-1.42M7.06 7.06 5.64 5.64M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>
+      </button>
+      <button id="btnBackup" title="資料管理" aria-label="資料管理" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-lg leading-none">🗂️</button>
+      <button id="btnSearch" type="button" title="搜尋記帳資料" aria-label="搜尋記帳資料" class="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m20 20-4-4"/></svg>
+      </button>
+      <input id="fileInput" type="file" accept=".json,application/json" class="hidden">
+      <input id="csvInput" type="file" accept=".csv,text/csv" class="hidden">
+    </div>
+  </div>
+</header>
+
+<main id="appMain" class="max-w-2xl w-full mx-auto px-4 py-4 flex-1 space-y-4 mb-16" style="touch-action: pan-y">
+
+  <div id="backupBanner" class="hidden flex items-center justify-between gap-3 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-sm"><span id="bannerText"></span><button type="button" id="bannerBtn" class="flex-none px-3 py-1.5 rounded-xl bg-amber-500 text-white font-semibold">立即備份</button></div>
+
+  <!-- Tab Navigation -->
+  <nav id="mainTabNav" class="flex p-1 bg-slate-200/70 dark:bg-slate-900 rounded-2xl text-sm font-medium">
+    <button type="button" data-tab="record" class="tab-btn flex-1 py-2.5 rounded-xl transition shadow-sm bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 font-semibold">記帳明細</button>
+    <button type="button" data-tab="analytics" class="tab-btn flex-1 py-2.5 rounded-xl transition text-slate-600 dark:text-slate-400">數據圖表</button>
+    <button type="button" data-tab="budget" class="tab-btn flex-1 py-2.5 rounded-xl transition text-slate-600 dark:text-slate-400">預算管理</button>
+  </nav>
+
+  <!-- ==================== VIEW 1: RECORD & ADD ==================== -->
+  <div id="viewRecord" class="space-y-4 animate-fade-in">
+    <!-- Quick NLP Input Card -->
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+      <form id="quickForm" autocomplete="off" class="space-y-2">
+        <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
+        <div class="flex gap-2">
+          <input id="quickInput" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +30000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-600/20 transition">記</button>
+        </div>
+        <div id="quickPreview" class="text-xs text-slate-400 dark:text-slate-500 min-h-[18px] transition-all"></div>
+      </form>
+    </section>
+
+    <div id="frequentWrap" class="hidden flex gap-2 overflow-x-auto pb-1 -mx-4 px-4"></div>
+
+    <!-- Standard Manual Input Card -->
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
+      <form id="manualForm" autocomplete="off" class="space-y-3">
+        <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+          <button type="button" data-type="expense" class="type-btn py-2 rounded-lg text-sm font-semibold transition bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm">支出</button>
+          <button type="button" data-type="income" class="type-btn py-2 rounded-lg text-sm font-semibold transition text-slate-600 dark:text-slate-400">收入</button>
+        </div>
+
+        <div class="flex items-baseline border-b-2 border-slate-200 dark:border-slate-800 pb-1 focus-within:border-teal-500 transition">
+          <span class="text-2xl font-bold text-slate-400 mr-1">$</span>
+          <input id="manualAmount" type="number" inputmode="decimal" enterkeyhint="next" autocomplete="off" step="any" min="0" placeholder="0" required class="w-full bg-transparent text-3xl font-bold tabular-nums focus:outline-none">
+        </div>
+
+        <!-- Chips Categories Container -->
+        <div id="categoryChips" class="flex flex-wrap gap-2 pt-1"></div>
+        <button type="button" id="manageCategoriesBtn" class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">管理自訂類別</button>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          <input id="manualNote" maxlength="100" enterkeyhint="done" autocomplete="off" placeholder="備註說明（選填）" class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <input id="manualDate" type="date" required class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+        </div>
+
+        <div id="noteChips" role="group" aria-label="目前類別近 30 天常用備註" class="hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4"></div>
+
+        <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl shadow-lg shadow-teal-600/25 transition">新增記帳紀錄</button>
+      </form>
+    </section>
+
+    <!-- Records List & Filter Card -->
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-1"><button type="button" id="monthPrev" aria-label="上個月" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-base">‹</button><input id="filterMonth" type="month" class="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><button type="button" id="monthNext" aria-label="下個月" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-base">›</button></div>
+        <button type="button" id="btnShowAll" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium rounded-xl transition">顯示全部</button>
+      </div>
+      <label class="flex items-center justify-between gap-3 text-xs text-slate-500">排序
+        <select id="ledgerSort" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
+          <option value="date-desc">日期：新到舊</option><option value="date-asc">日期：舊到新</option><option value="amount-desc">金額：高到低</option><option value="amount-asc">金額：低到高</option>
+        </select>
+      </label>
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center">
+        <div>
+          <span class="block text-xs text-slate-400">總收入</span>
+          <b id="summaryInc" class="text-sm sm:text-base font-bold c-income tabular-nums">$0</b>
+        </div>
+        <div>
+          <span class="block text-xs text-slate-400">總支出</span>
+          <b id="summaryExp" class="text-sm sm:text-base font-bold c-expense tabular-nums">$0</b>
+        </div>
+        <div>
+          <span class="block text-xs text-slate-400">結餘</span>
+          <b id="summaryBal" class="text-sm sm:text-base font-bold tabular-nums">$0</b>
+        </div>
+      </div>
+
+      <!-- List Container -->
+      <div id="recordList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    </section>
+
+  </div>
+
+  <div id="viewSearch" class="space-y-4 hidden animate-fade-in">
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="font-bold">搜尋記帳資料</h2>
+        <button type="button" id="searchClose" title="返回記帳明細" aria-label="返回記帳明細" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+      </div>
+      <input id="recordSearch" type="search" enterkeyhint="search" autocomplete="off" placeholder="日期、類別、備註或金額" class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+      <div class="grid grid-cols-2 gap-2">
+        <label class="space-y-1 text-xs text-slate-500">開始日期<input id="recordSearchFrom" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
+        <label class="space-y-1 text-xs text-slate-500">結束日期<input id="recordSearchTo" type="date" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm"></label>
+      </div>
+      <label class="flex items-center justify-between gap-3 text-xs text-slate-500">排序
+        <select id="searchSort" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
+          <option value="date-desc">日期：新到舊</option><option value="date-asc">日期：舊到新</option><option value="amount-desc">金額：高到低</option><option value="amount-asc">金額：低到高</option>
+        </select>
+      </label>
+      <p id="recordSearchSummary" aria-live="polite" class="text-xs text-slate-400">輸入關鍵字搜尋所有紀錄</p>
+      <div id="recordSearchResults" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    </section>
+  </div>
+
+  <!-- ==================== VIEW 2: ANALYTICS & CHARTS ==================== -->
+  <div id="viewAnalytics" class="space-y-4 hidden animate-fade-in">
+    <!-- Timeframe Switcher -->
+    <div class="flex p-1 bg-slate-200/70 dark:bg-slate-900 rounded-2xl text-xs font-semibold">
+      <button type="button" data-range="week" class="range-btn flex-1 py-2 rounded-xl transition bg-white dark:bg-slate-800 text-teal-600 shadow-sm">本週</button>
+      <button type="button" data-range="month" class="range-btn flex-1 py-2 rounded-xl transition text-slate-600 dark:text-slate-400">本月</button>
+      <button type="button" data-range="year" class="range-btn flex-1 py-2 rounded-xl transition text-slate-600 dark:text-slate-400">本年度</button>
+      <button type="button" data-range="all" class="range-btn flex-1 py-2 rounded-xl transition text-slate-600 dark:text-slate-400">全部</button>
+    </div>
+
+    <div id="periodNav" class="flex items-center justify-between text-sm"><button type="button" id="periodPrev" aria-label="上一期" class="px-5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-base">‹</button><span id="periodLabel" class="font-semibold"></span><button type="button" id="periodNext" aria-label="下一期" class="px-5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-base">›</button></div>
+
+    <!-- Period Summary Cards -->
+    <div class="grid grid-cols-3 gap-2">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl text-center shadow-sm">
+        <span class="text-xs text-slate-400 block">期間收入</span>
+        <b id="analyticsInc" class="text-sm sm:text-lg font-bold c-income tabular-nums">$0</b>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl text-center shadow-sm">
+        <span class="text-xs text-slate-400 block">期間支出</span>
+        <b id="analyticsExp" class="text-sm sm:text-lg font-bold c-expense tabular-nums">$0</b>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl text-center shadow-sm">
+        <span class="text-xs text-slate-400 block">淨收支</span>
+        <b id="analyticsNet" class="text-sm sm:text-lg font-bold tabular-nums">$0</b>
+      </div>
+    </div>
+
+    <!-- Category Breakdown Chart Card -->
+    <section id="trendChartSection" class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-sm">支出類別佔比分析</h3>
+        <div class="flex gap-1 text-xs bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+          <button type="button" id="chartTypeExp" class="px-2.5 py-1 rounded-md bg-white dark:bg-slate-700 font-semibold shadow-sm">支出</button>
+          <button type="button" id="chartTypeInc" class="px-2.5 py-1 rounded-md text-slate-500">收入</button>
+        </div>
+      </div>
+      <div id="chartContainer" class="py-2 flex flex-col items-center justify-center min-h-[180px]">
+        <!-- SVG Donut or Bars injected via JS -->
+      </div>
+      <div id="categoryBreakdownList" class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800"></div>
+    </section>
+
+    <!-- Trend / Bar Chart Card -->
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="font-bold text-sm">趨勢收支對比圖表</h3>
+        <div class="flex items-center gap-3 text-xs text-slate-500">
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-c-income"></span>收入</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-c-expense"></span>支出</span>
+        </div>
+      </div>
+      <div id="trendChartContainer" class="w-full overflow-x-auto py-2">
+        <!-- SVG Trend Chart injected via JS -->
+      </div>
+    </section>
+
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="font-bold text-sm">本期詳細記帳資料</h3>
+        <div class="flex items-center gap-2">
+          <span id="analyticsRecordCount" class="text-xs text-slate-400"></span>
+          <select id="analyticsSort" aria-label="明細排序" class="px-2 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
+            <option value="date-desc">日期新到舊</option><option value="date-asc">日期舊到新</option><option value="amount-desc">金額高到低</option><option value="amount-asc">金額低到高</option>
+          </select>
+        </div>
+      </div>
+      <div id="analyticsRecordList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    </section>
+  </div>
+
+  <!-- ==================== VIEW 3: BUDGET MANAGEMENT ==================== -->
+  <div id="viewBudget" class="space-y-4 hidden animate-fade-in">
+    <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-base">每月消費預算控管</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400">設定每月支出上限，即時掌握財務健康</p>
+        </div>
+        <div id="budgetMonthLabel" class="text-xs font-semibold px-2.5 py-1 bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 rounded-lg"></div>
+      </div>
+
+      <div class="space-y-2">
+        <label for="budgetInput" class="block text-xs font-medium text-slate-500">設定本月預算金額 ($)</label>
+        <div class="flex gap-2">
+          <input id="budgetInput" type="number" inputmode="numeric" enterkeyhint="done" min="0" step="100" placeholder="例如：20000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <button type="button" id="btnSaveBudget" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md transition">儲存預算</button>
+        </div>
+      </div>
+
+      <!-- Budget Progress Bar -->
+      <div class="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+        <div class="flex justify-between text-sm">
+          <span class="text-slate-500">本月已支出：<b id="budgetCurrent" class="text-slate-800 dark:text-slate-100 tabular-nums">$0</b></span>
+          <span class="text-slate-500">預算上限：<b id="budgetLimit" class="text-slate-800 dark:text-slate-100 tabular-nums">$0</b></span>
+        </div>
+        
+        <div class="w-full bg-slate-100 dark:bg-slate-800 h-4 rounded-full overflow-hidden p-0.5">
+          <div id="budgetProgressBar" class="h-full bg-teal-500 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <div id="budgetStatusText" class="text-xs font-medium text-center py-1"></div>
+      </div>
+    </section>
+
+    <!-- AI Insights / Smart Tips -->
+    <section class="bg-gradient-to-br from-teal-500/10 to-emerald-500/5 border border-teal-500/20 rounded-2xl p-4 shadow-sm space-y-2">
+      <div class="flex items-center space-x-2 text-teal-600 dark:text-teal-400 font-semibold text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <h4>智能財務小建議</h4>
+      </div>
+      <p id="aiInsightText" class="text-xs leading-relaxed text-slate-600 dark:text-slate-300">正在分析您的消費習慣與支出分佈...</p>
+    </section>
+  </div>
+
+</main>
+
+<!-- Toast Notification -->
+<div id="toast" role="status" aria-live="polite" class="fixed left-1/2 -translate-x-1/2 bottom-6 bg-slate-900 dark:bg-slate-100 text-slate-100 dark:text-slate-900 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm z-50 max-w-[92vw] transition-all duration-300 translate-y-20 opacity-0 pointer-events-none">
+  <span id="toastMsg" class="flex-1"></span>
+  <button id="toastAction" type="button" class="font-bold underline text-teal-400 dark:text-teal-600 hidden"></button>
+</div>
+
+<script>
+'use strict';
+
+/* ---------- NLP Parser Engine ---------- */
+const KEYWORDS = {
+expense: [
+    ['餐飲', [
+      '早餐', '午餐', '晚餐', '消夜', '飲料', '點心', '咖啡', '便當', '手搖', '餐', '吃', 
+      '火鍋', '燒肉', '麥當勞', '壽司', '臭豆腐', '伙食費', '飯', '麵', '小吃', 
+      '鹹酥雞', '珍奶', '手搖飲', '自助餐', '早午餐', '下午茶', '外送', 'ubereats', 
+      'foodpanda', '全家', '7-11', '萊爾富', 'ok超商', '超商', '咖啡廳', '餐廳'
+    ]],
+    ['交通', [
+      '捷運', '公車', '火車', '高鐵', '台鐵', '計程車', 'uber', '加油', '停車', 
+      '悠遊卡', '機車', '客運', '過路費', 'ubike', 'youbike', '租車', 'iRent', 
+      '共享機車', 'gogoro', '台鐵', '高鐵', '捷運', '高捷', '北捷', '加油站', 
+      'e-tag', 'etag', '停車費', '拖吊'
+    ]],
+    ['日用品', [
+      '日用', '衛生紙', '洗衣', '洗髮', '牙膏', '超市', '全聯', '家樂福', 'costco', 
+      '好市多', '屈臣氏', '康是美', '寶雅', 'poya', '全聯福利中心', '頂好', '美廉社', 
+      '大潤發', '清潔', '沐浴乳', '洗面乳', '垃圾袋', '頭髮', 'ikea'
+    ]],
+    ['購物', [
+      '衣', '鞋', '蝦皮', 'momo', '網購', '購物', '包包', '3c', '電腦', '手機', 
+      'pchome', 'yahoo', '淘寶', 'coupang', '酷澎', '服飾', '衣服', '褲子', 
+      '眼鏡', '彩妝', '保養品', '百貨公司', 'sogo', '新光三越', '遠百', 'outlet', '思夢樂', '無印', '工具'
+    ]],
+    ['娛樂', [
+      '電影', '遊戲', '娛樂', 'ktv', 'netflix', 'spotify', '訂閱', '演唱會', 
+      '旅遊', '門票', 'steam', 'app store', 'google play', 'youtube', '迪士尼', 
+      'apple music', '露營', '溫泉', '展覽', '景點', '住宿', '飯店', '民宿'
+    ]],
+    ['居住', [
+      '房租', '租金', '水費', '電費', '瓦斯', '網路費', '管理費', '電話費', '房貸', 
+      '台電', '自來水', '瓦斯費', '中華電信', '台灣大哥大', '遠傳', '亞太', '台灣之星', 
+      'ibon', '第四台', '裝潢', '傢俱', '修繕'
+    ]],
+    ['醫療', [
+      '醫', '診所', '藥', '掛號', '醫院', '牙醫', '保健', '藥局', '健保', '健檢', 
+      '中醫', '西醫', '物理治療', '口罩', '維維', '維他命', '保健食品', '感冒', '發燒', '耳鼻', '生病', '紗布'
+    ]],
+    ['學習', [
+      '書', '課', '學費', '補習', '考試', '課程', '誠品', '金石堂', '博客來', 
+      '多益', '托福', '駕訓班', '線上課程', 'udemy', 'hahow'
+    ]]
+  ],
+  income: [
+    ['薪資', [
+      '薪水', '薪資', '月薪', '工資', '底薪', '年薪', '兼職薪資'
+    ]],
+    ['獎金', [
+      '獎金', '年終', '紅利', '績效獎金', '三節', '分紅'
+    ]],
+    ['投資', [
+      '股利', '股息', '配息', '利息', '投資', '比特幣', '股票', '基金', 
+      '美股', '台股', 'etf', '手續費退佣', '中獎', '發票中獎'
+    ]],
+    ['兼職', [
+      '兼職', '接案', '外快', '打工', '稿費', '家教', '諮詢費', '通告費'
+    ]]
+  ]
+};
+
+const round2 = n => Math.round(n * 100) / 100;
+const ymd = (d = new Date()) => { 
+  const p = n => String(n).padStart(2, '0'); 
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); 
+};
+
+function parseQuickInput(input, opt) {
+  let s = String(input).normalize('NFKC').trim();
+  if (!s) return { ok: false };
+  let offset = 0;
+  s = s.replace(/前天|昨天|昨日|今天|今日/, m => { offset = m === '前天' ? -2 : /昨/.test(m) ? -1 : 0; return ' '; });
+  s = s.replace(/(\d)\s*(元|塊|圓)/g, '$1 ')
+       .replace(/([\u4e00-\u9fff])(?=[+\-$]?\d)/g, '$1 ')
+       .replace(/(\d)(?=[\u4e00-\u9fff])/g, '$1 ');
+  const toks = s.split(/\s+/).filter(Boolean);
+  let idx = -1, sign = '', amount = NaN;
+  for (let i = toks.length - 1; i >= 0; i--) {
+    const m = toks[i].match(/^([+\-])?\$?(\d[\d,]*(?:\.\d+)?)$/);
+    if (m) { idx = i; sign = m[1] || ''; amount = parseFloat(m[2].replace(/,/g, '')); break; }
+  }
+  if (idx < 0 || !(amount > 0) || amount > 1e10) return { ok: false };
+  const text = toks.filter((_, i) => i !== idx).join(' ');
+  const low = text.toLowerCase();
+  const hit = n => low.includes(n.toLowerCase());
+  let type = 'expense';
+  if (sign === '+') type = 'income';
+  else if (sign !== '-' && (opt.names.income.some(n => n !== '其他' && hit(n)) || KEYWORDS.income.some(([, ks]) => ks.some(hit)))) type = 'income';
+  let category = opt.names[type].filter(n => n !== '其他').sort((a, b) => b.length - a.length).find(hit);
+  if (!category) { const k = KEYWORDS[type].find(([, ks]) => ks.some(hit)); category = k ? k[0] : '其他'; }
+  const t = opt.today;
+  return { ok: true, type, category, amount: round2(amount), note: text === category ? '' : text, date: ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset)) };
+}
+
+/* ---------- Data Store & State ---------- */
+const DEFAULTS = {
+  expense: [['餐飲','🍜'],['交通','🚇'],['購物','🛍️'],['日用品','🧴'],['娛樂','🎮'],['居住','🏠'],['醫療','💊'],['學習','📚'],['其他','🏷️']],
+  income: [['薪資','💼'],['獎金','🎁'],['投資','📈'],['兼職','🧑‍💻'],['其他','💰']]
+};
+const ALIAS = { '伙食': '🍜', '薪水': '💼' };
+const iconFor = (type, name) => (DEFAULTS[type].find(c => c[0] === name) || [0, ALIAS[name] || '🏷️'])[1];
+
+let db = null, records = [], lastId = 0;
+let currentTab = 'record';
+let manualType = 'expense';
+let selectedCategory = null;
+let customCategories = { expense: [], income: [] };
+let categoryBeingEdited = null;
+let categoryPendingDelete = null;
+let customPending = { expense: new Set(), income: new Set() };
+let analyticsRange = 'week';
+let chartMode = 'expense';
+let analyticsOffset = 0;
+
+/* ---------- 錯誤紀錄（存 localStorage，最近 20 筆，供「資料管理 → 診斷資訊」查看） ---------- */
+const ERR_LOG_KEY = 'ledger_error_log';
+const errorLog = () => { try { return JSON.parse(localStorage.getItem(ERR_LOG_KEY) || '[]'); } catch (e) { return []; } };
+function logError(kind, err) {
+  try {
+    const e = err && typeof err === 'object' ? err : { message: String(err) };
+    const list = errorLog();
+    list.unshift({ t: Date.now(), kind, name: String(e.name || ''), msg: String(e.message || e).slice(0, 200), stack: String(e.stack || '').split('\n').slice(0, 3).join(' | ').slice(0, 300) });
+    localStorage.setItem(ERR_LOG_KEY, JSON.stringify(list.slice(0, 20)));
+  } catch (_) {}
+}
+window.addEventListener('error', ev => logError('error', ev.error || { message: ev.message }));
+window.addEventListener('unhandledrejection', ev => logError('promise', ev.reason));
+
+/* ---------- 多視窗同步：任一視窗寫入後通知其他視窗重新讀取 ---------- */
+const syncCh = 'BroadcastChannel' in window ? new BroadcastChannel('smart_ledger_sync') : null;
+const syncNotify = () => { try { if (syncCh) syncCh.postMessage('changed'); } catch (e) {} };
+const cleanNames = a => Array.isArray(a) ? [...new Set(a.filter(n => typeof n === 'string').map(n => n.trim().slice(0, 20)).filter(Boolean))] : [];
+
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const fmt = n => '$' + n.toLocaleString('zh-TW', { maximumFractionDigits: 2 });
+
+/* IndexedDB Management */
+const openDB = () => new Promise((res, rej) => {
+  const r = indexedDB.open('smart_ledger_db', 2);
+  r.onupgradeneeded = () => {
+    const d = r.result;
+    if (!d.objectStoreNames.contains('records')) d.createObjectStore('records', { keyPath: 'id' });
+    if (!d.objectStoreNames.contains('settings')) d.createObjectStore('settings', { keyPath: 'key' });
+  };
+  r.onsuccess = () => {
+    const d = r.result;
+    d.onversionchange = () => { d.close(); db = null; showToast('資料庫已在其他視窗更新，請重新載入', '重新載入', () => location.reload(), 60000); };
+    res(d);
+  };
+  r.onblocked = () => showToast('請先關閉其他開啟此 App 的視窗，再重新載入', null, null, 8000);
+  r.onerror = () => rej(r.error);
+});
+
+const dbTx = (storeName, mode, fn) => new Promise((res, rej) => {
+  if (!db) return res(null);
+  if (storeName === 'records' && mode === 'readwrite' && typeof scheduleBackup === 'function') scheduleBackup();
+  const t = db.transaction(storeName, mode), out = fn(t.objectStore(storeName));
+  t.oncomplete = () => { if (storeName === 'records' && mode === 'readwrite') syncNotify(); res(out && out.result); };
+  t.onerror = t.onabort = () => rej(t.error);
+});
+
+const nextId = () => (lastId = Math.max(Date.now(), lastId + 1));
+
+function sanitizeRecord(x) {
+  if (!x || typeof x !== 'object') return null;
+  const type = x.type === 'income' ? 'income' : x.type === 'expense' ? 'expense' : null;
+  const amount = Number(x.amount), date = typeof x.date === 'string' ? x.date.slice(0, 10) : '';
+  if (!type || !isFinite(amount) || amount <= 0 || amount > 1e10 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const id = Number(x.id);
+  return { 
+    id: isFinite(id) && id > 0 ? id : null, 
+    date, 
+    type, 
+    amount: round2(amount),
+    category: String(x.category == null ? '' : x.category).trim().slice(0, 20) || '其他',
+    note: String(x.note == null ? '' : x.note).trim().slice(0, 200) 
+  };
+}
+
+async function mergeRecordsIn(list) {
+  const byId = new Map(records.map(r => [r.id, r]));
+  list.forEach(r => { if (r.id == null) r.id = nextId(); lastId = Math.max(lastId, r.id); byId.set(r.id, r); });
+  await dbTx('records', 'readwrite', s => { list.forEach(r => s.put(r)); });
+  records = [...byId.values()];
+}
+
+/* ---------- UI Controller & Renderers ---------- */
+function hideToast() {
+  $('#toast').classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+}
+function showToast(msg, actionText, actionFn, ms) {
+  const t = $('#toast'), msgEl = $('#toastMsg'), actEl = $('#toastAction');
+  // 開啟中的 modal <dialog> 位於 top layer，z-index 蓋不過它；
+  // 把提示移進該 dialog 內，就能顯示在資料管理等視窗之上
+  const host = document.querySelector('dialog[open]') || document.body;
+  if (t.parentElement !== host) host.append(t);
+  msgEl.textContent = msg;
+  const hasAction = !!(actionText && actionFn);
+  if (hasAction) {
+    actEl.textContent = actionText;
+    actEl.onclick = () => { hideToast(); actionFn(); };
+    actEl.classList.remove('hidden');
+  } else {
+    actEl.classList.add('hidden');
+  }
+  t.classList.remove('translate-y-20', 'opacity-0');
+  // 原本整個提示都是 pointer-events-none，「復原」按鈕根本點不到
+  t.classList.toggle('pointer-events-none', !hasAction);
+  clearTimeout(window._tt);
+  window._tt = setTimeout(hideToast, ms || (hasAction ? 7000 : 4500));
+}
+
+/* Category mapping */
+function getCategoriesFor(type) {
+  const map = new Map();
+  DEFAULTS[type].forEach(([n], i) => map.set(n, { n, order: i, score: 0 }));
+  const now = Date.now();
+  for (const r of records) {
+    if (r.type !== type) continue;
+    const c = map.get(r.category) || { n: r.category, order: 100, score: 0 };
+    c.score += (now - new Date(r.date + 'T00:00:00')) / 864e5 <= 30 ? 3 : 1;
+    map.set(r.category, c);
+  }
+  customCategories[type].forEach(n => map.has(n) || map.set(n, { n, order: 200, score: 0 }));
+  customPending[type].forEach(n => map.has(n) || map.set(n, { n, order: 200, score: 0 }));
+  const rank = c => (c.n === '其他' ? 1 : 0);
+  return [...map.values()].sort((a, b) => rank(a) - rank(b) || b.score - a.score || a.order - b.order).map(c => c.n);
+}
+
+/* 近 30 天常用備註：只列「目前選的類別」用過的備註，依次數與最近使用排序；輸入文字時變成自動建議 */
+let manualBusy = false;
+function renderNoteChips() {
+  const wrap = $('#noteChips'); if (!wrap) return;
+  const input = $('#manualNote');
+  const cut = ymd(new Date(Date.now() - 30 * 864e5)), m = new Map();
+  records.forEach(r => {
+    const note = String(r.note || '').trim();
+    if (!note || r.type !== manualType || r.category !== selectedCategory || r.date < cut) return;
+    const c = m.get(note) || { note, n: 0, last: '' };
+    c.n++;
+    if (r.date > c.last) c.last = r.date;
+    m.set(note, c);
+  });
+  const cur = input.value.trim().toLowerCase();
+  const list = [...m.values()]
+    .filter(c => !cur || (c.note.toLowerCase().includes(cur) && c.note.toLowerCase() !== cur))
+    .sort((a, b) => (b.n - a.n) || (a.last < b.last ? 1 : -1))
+    .slice(0, 8);
+  wrap.classList.toggle('hidden', !list.length);
+  if (!list.length) { wrap.replaceChildren(); return; }
+  const label = document.createElement('span');
+  label.className = 'flex-none text-xs text-slate-400';
+  const hasAmount = parseFloat($('#manualAmount').value) > 0;
+  label.textContent = hasAmount ? '點選即記帳' : (cur ? '符合的備註' : selectedCategory + '常用備註');
+  wrap.replaceChildren(label, ...list.map(c => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'flex-none px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 active:scale-95 transition';
+    b.style.cssText = 'max-width:12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    b.title = c.note + '（' + selectedCategory + '，近 30 天用過 ' + c.n + ' 次）';
+    b.textContent = c.note;
+    b.onclick = () => {
+      input.value = c.note.slice(0, 100);
+      if (parseFloat($('#manualAmount').value) > 0) {
+        // 已填金額：點備註 = 以目前選的類別直接新增（等同按「新增記帳紀錄」，新增後可復原）
+        if (manualBusy) return;
+        const form = $('#manualForm');
+        if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+      } else {
+        // 還沒填金額：只填入備註，並把游標移到金額欄
+        input.dispatchEvent(new Event('input'));
+        $('#manualAmount').focus();
+      }
+    };
+    return b;
+  }));
+}
+
+function renderCategoryChips() {
+  const names = getCategoriesFor(manualType);
+  if (!names.includes(selectedCategory)) selectedCategory = names[0];
+  const container = $('#categoryChips');
+  container.replaceChildren(
+    ...names.map(n => {
+      const active = n === selectedCategory;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition border ${active ? 'bg-teal-50 dark:bg-teal-950/60 border-teal-500 text-teal-600 dark:text-teal-400 shadow-sm' : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300'}`;
+      btn.onclick = () => { selectedCategory = n; renderCategoryChips(); };
+      btn.append(iconFor(manualType, n), ' ', n);
+      return btn;
+    }),
+    (() => {
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 transition';
+      addBtn.onclick = () => {
+        const name = (prompt('請輸入新類別名稱（最多 8 個字）') || '').trim().slice(0, 8);
+        if (!name) return;
+        addCustomCategory(manualType, name);
+      };
+      addBtn.append('＋ 新增');
+      return addBtn;
+    })()
+  );
+  renderNoteChips();
+}
+
+async function saveCustomCategories(type, names) {
+  const next = { ...customCategories, [type]: names };
+  await settingsPut({ key: 'customCategories', expense: next.expense, income: next.income });
+  customCategories = next;
+  syncNotify();
+}
+
+async function addCustomCategory(type, name) {
+  const clean = name.trim().slice(0, 20);
+  if (!clean) return;
+  if (getCategoriesFor(type).includes(clean)) return showToast('這個類別已經存在');
+  try {
+    await saveCustomCategories(type, [...customCategories[type], clean]);
+    if (type === manualType) selectedCategory = clean;
+    renderCategoryChips();
+    renderCategoryManager();
+    showToast('已新增類別：' + clean);
+  } catch (e) { showToast('類別儲存失敗，請再試一次'); }
+}
+
+function getManagedCategories(type) {
+  const defaults = new Set(DEFAULTS[type].map(([name]) => name));
+  const fromRecords = records.filter(r => r.type === type).map(r => r.category);
+  return [...new Set([...customCategories[type], ...customPending[type], ...fromRecords])]
+    .filter(name => !defaults.has(name)).sort((a, b) => a.localeCompare(b, 'zh-TW'));
+}
+
+function renderCategoryManager() {
+  const type = $('#manageCategoryType').value;
+  const names = getManagedCategories(type);
+  if (!names.length) {
+    $('#managedCategoryList').replaceChildren(createElementWithText('div', '尚無自訂類別', 'py-4 text-center text-sm text-slate-400'));
+    return;
+  }
+  const rows = names.map(name => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-3 py-2.5';
+    const actions = document.createElement('div');
+    actions.className = 'flex flex-none gap-2';
+    if (categoryPendingDelete === name) {
+      const affectedCount = records.filter(r => r.type === type && r.category === name).length;
+      const warning = createElementWithText('span', affectedCount ? `${affectedCount} 筆紀錄將改為「其他」` : '確定刪除這個類別？', 'min-w-0 flex-1 text-xs text-orange-600');
+      const confirmDelete = document.createElement('button');
+      confirmDelete.type = 'button'; confirmDelete.className = 'px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold'; confirmDelete.textContent = '確定刪除';
+      confirmDelete.onclick = () => deleteCustomCategory(type, name);
+      const cancelDelete = document.createElement('button');
+      cancelDelete.type = 'button'; cancelDelete.className = 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; cancelDelete.textContent = '取消';
+      cancelDelete.onclick = () => { categoryPendingDelete = null; renderCategoryManager(); };
+      actions.append(confirmDelete, cancelDelete); row.append(warning, actions);
+      return row;
+    }
+    if (categoryBeingEdited === name) {
+      const input = document.createElement('input');
+      input.type = 'text'; input.maxLength = 20; input.value = name;
+      input.className = 'min-w-0 flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm';
+      const save = document.createElement('button');
+      save.type = 'button'; save.className = 'px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold'; save.textContent = '儲存';
+      save.onclick = () => editCustomCategory(type, name, input.value);
+      const cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.className = 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; cancel.textContent = '取消';
+      cancel.onclick = () => { categoryBeingEdited = null; renderCategoryManager(); };
+      actions.append(save, cancel); row.append(input, actions);
+      return row;
+    }
+    const label = createElementWithText('span', name, 'min-w-0 flex-1 truncate text-sm font-medium');
+    const edit = document.createElement('button');
+    edit.type = 'button'; edit.className = 'px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; edit.textContent = '編輯';
+    edit.onclick = () => { categoryBeingEdited = name; renderCategoryManager(); };
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'px-3 py-1.5 rounded-lg bg-orange-50 dark:bg-slate-800 text-orange-600 text-xs font-semibold'; remove.textContent = '刪除';
+    remove.onclick = () => { categoryPendingDelete = name; renderCategoryManager(); };
+    actions.append(edit, remove); row.append(label, actions);
+    return row;
+  });
+  $('#managedCategoryList').replaceChildren(...rows);
+}
+
+async function editCustomCategory(type, oldName, value) {
+  const newName = value.trim().slice(0, 20);
+  if (!newName || newName === oldName) { categoryBeingEdited = null; renderCategoryManager(); return; }
+  if (getCategoriesFor(type).includes(newName)) return showToast('這個類別名稱已經存在');
+  const affected = records.filter(r => r.type === type && r.category === oldName);
+  try {
+    if (affected.length) {
+      const renamed = affected.map(r => ({ ...r, category: newName }));
+      await dbTx('records', 'readwrite', store => renamed.forEach(r => store.put(r)));
+      const byId = new Map(renamed.map(r => [r.id, r]));
+      records = records.map(r => byId.get(r.id) || r);
+    }
+    const names = customCategories[type].filter(n => n !== oldName);
+    await saveCustomCategories(type, [...names, newName]);
+    customPending[type].delete(oldName);
+    customPending[type].add(newName);
+    categoryBeingEdited = null;
+    refreshAll(); renderCategoryManager();
+    showToast('類別已更新：' + newName);
+  } catch (e) { showToast('類別更新失敗，請再試一次'); }
+}
+
+async function deleteCustomCategory(type, name) {
+  const affected = records.filter(r => r.type === type && r.category === name);
+  try {
+    if (affected.length) {
+      const changed = affected.map(r => ({ ...r, category: '其他' }));
+      await dbTx('records', 'readwrite', store => changed.forEach(r => store.put(r)));
+      const byId = new Map(changed.map(r => [r.id, r]));
+      records = records.map(r => byId.get(r.id) || r);
+    }
+    await saveCustomCategories(type, customCategories[type].filter(n => n !== name));
+    customPending[type].delete(name);
+    categoryPendingDelete = null;
+    refreshAll(); renderCategoryManager();
+    showToast('已刪除類別：' + name);
+  } catch (e) { showToast('類別刪除失敗，請再試一次'); }
+}
+
+/* Render Main Ledger View */
+function renderLedger() {
+  renderNoteChips();
+  renderFrequent();
+  const filterMonth = $('#filterMonth').value;
+  const filtered = sortRecords(records.filter(r => !filterMonth || r.date.startsWith(filterMonth)), $('#ledgerSort').value);
+
+  let inc = 0, exp = 0;
+  filtered.forEach(r => r.type === 'income' ? inc += r.amount : exp += r.amount);
+  inc = round2(inc); exp = round2(exp);
+  const bal = round2(inc - exp);
+
+  $('#summaryInc').textContent = fmt(inc);
+  $('#summaryExp').textContent = fmt(exp);
+  const balEl = $('#summaryBal');
+  balEl.textContent = fmt(bal);
+  balEl.className = 'text-sm sm:text-base font-bold tabular-nums ' + (bal >= 0 ? 'c-income' : 'c-expense');
+
+  const listEl = $('#recordList');
+
+  if (!filtered.length) {
+    const empty = document.createElement('div');
+    empty.className = 'text-center py-12 text-slate-400 text-sm space-y-1';
+    empty.append('尚無記帳紀錄，試試上方智慧輸入吧！');
+    listEl.replaceChildren(empty);
+    renderRecordSearch();
+    return;
+  }
+
+  const nodes = filtered.map(r => {
+    const item = document.createElement('div');
+    item.className = 'flex items-center justify-between gap-2 py-3.5 group';
+
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.style.alignItems = 'flex-start'; info.style.textAlign = 'left';
+    info.onclick = () => openEdit(r);
+    const title = document.createElement('div');
+    title.className = 'w-full font-semibold text-base truncate';
+    title.style.textAlign = 'left';
+    title.textContent = r.category;
+
+    const note = document.createElement('div');
+    note.className = 'w-full text-sm text-slate-500 dark:text-slate-400 truncate';
+    note.style.textAlign = 'left';
+    note.style.minHeight = '1.25rem';   // 沒有備註時留白，但保持每列高度一致
+    note.textContent = r.note || '';
+
+    info.append(title, note);
+
+    const right = document.createElement('div');
+    right.className = 'flex items-center gap-2 flex-none';
+
+    const amountDate = document.createElement('div');
+    amountDate.className = 'flex min-w-[112px] flex-col items-end text-right';
+    amountDate.style.alignItems = 'flex-end'; amountDate.style.textAlign = 'right';
+
+    const amount = document.createElement('div');
+    amount.className = `font-bold text-lg tabular-nums ${r.type === 'income' ? 'c-income' : 'c-expense'}`;
+    amount.textContent = (r.type === 'income' ? '+' : '-') + fmt(r.amount);
+
+    const date = document.createElement('div');
+    date.className = 'text-sm text-slate-500 dark:text-slate-400';
+    date.textContent = r.date;
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'text-slate-400 hover:text-orange-500 p-2.5 rounded-lg transition';
+    delBtn.title = '刪除紀錄';
+    delBtn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+    delBtn.onclick = () => deleteRecord(r);
+    amountDate.append(amount, date);
+    right.append(amountDate, delBtn);
+    item.append(info, right);
+    return item;
+  });
+
+  listEl.replaceChildren(...nodes);
+  renderRecordSearch();
+}
+
+function sortRecords(list, sort) {
+  const [key, direction] = sort.split('-');
+  return [...list].sort((a, b) => {
+    const primary = key === 'amount' ? a.amount - b.amount : a.date.localeCompare(b.date);
+    const tieBreak = b.date.localeCompare(a.date) || b.id - a.id;
+    return primary ? primary * (direction === 'asc' ? 1 : -1) : tieBreak;
+  });
+}
+
+function renderAuxRecordList(container, list, emptyText) {
+  if (!list.length) {
+    container.replaceChildren(createElementWithText('div', emptyText, 'text-center py-6 text-slate-400 text-sm'));
+    return;
+  }
+  const nodes = list.map(r => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2 py-3.5';
+    const info = document.createElement('button');
+    info.type = 'button';
+    info.className = 'flex min-w-0 flex-1 flex-col items-start text-left';
+    info.style.alignItems = 'flex-start'; info.style.textAlign = 'left';
+    info.onclick = () => openEdit(r);
+    const category = createElementWithText('span', r.category, 'block w-full font-semibold text-base truncate');
+    const note = createElementWithText('span', r.note || '', 'block w-full text-sm text-slate-500 dark:text-slate-400 truncate');
+    category.style.textAlign = 'left';
+    note.style.textAlign = 'left';
+    note.style.minHeight = '1.25rem';
+    info.append(category, note);
+    const right = document.createElement('div');
+    right.className = 'flex items-center gap-2 flex-none';
+    const amountDate = document.createElement('div');
+    amountDate.className = 'flex min-w-[112px] flex-col items-end text-right';
+    amountDate.style.alignItems = 'flex-end'; amountDate.style.textAlign = 'right';
+    const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-lg tabular-nums ' + (r.type === 'income' ? 'c-income' : 'c-expense'));
+    const date = createElementWithText('span', r.date, 'text-sm text-slate-500 dark:text-slate-400');
+    amountDate.append(amount, date);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'text-slate-400 hover:text-orange-500 p-2 rounded-lg';
+    remove.title = '刪除紀錄';
+    remove.setAttribute('aria-label', '刪除 ' + r.category + ' ' + fmt(r.amount));
+    remove.textContent = '×';
+    remove.onclick = () => deleteRecord(r);
+    right.append(amountDate, remove);
+    row.append(info, right);
+    return row;
+  });
+  container.replaceChildren(...nodes);
+}
+
+function renderRecordSearch() {
+  const query = $('#recordSearch').value.trim().toLocaleLowerCase();
+  const from = $('#recordSearchFrom').value;
+  const to = $('#recordSearchTo').value;
+  const results = $('#recordSearchResults');
+  if (!query && !from && !to) {
+    $('#recordSearchSummary').textContent = '輸入關鍵字搜尋所有紀錄';
+    results.replaceChildren();
+    return;
+  }
+  if (from && to && from > to) {
+    $('#recordSearchSummary').textContent = '開始日期不可晚於結束日期';
+    results.replaceChildren();
+    return;
+  }
+  const matches = sortRecords(records.filter(r => (!query || [r.date, r.type === 'income' ? '收入' : '支出', r.category, r.amount, r.note]
+    .join(' ').toLocaleLowerCase().includes(query)) && (!from || r.date >= from) && (!to || r.date <= to))
+    , $('#searchSort').value);
+  const criteria = [query ? `「${$('#recordSearch').value.trim()}」` : '', from || to ? `${from || '不限'} 至 ${to || '不限'}` : ''].filter(Boolean).join('，');
+  $('#recordSearchSummary').textContent = `找到 ${matches.length} 筆符合${criteria}的紀錄`;
+  renderAuxRecordList(results, matches, '沒有符合的記帳資料');
+}
+
+async function deleteRecord(r) {
+  await dbTx('records', 'readwrite', s => s.delete(r.id));
+  records = records.filter(x => x.id !== r.id);
+  renderLedger();
+  updateAnalytics();
+  updateBudget();
+  showToast('已刪除紀錄', '復原', async () => {
+    await mergeRecordsIn([r]);
+    renderLedger();
+    updateAnalytics();
+    updateBudget();
+  });
+}
+
+/* ---------- Analytics & Charts Renderer ---------- */
+function periodBounds(range) {
+  const n = new Date();
+  if (range === 'week') {
+    const d = n.getDay() || 7;
+    const a = new Date(n.getFullYear(), n.getMonth(), n.getDate() - d + 1 - 7 * analyticsOffset);
+    const b = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6);
+    return [ymd(a), ymd(b), ymd(a).slice(5) + ' ~ ' + ymd(b).slice(5)];
+  }
+  if (range === 'month') {
+    const a = new Date(n.getFullYear(), n.getMonth() - analyticsOffset, 1), k = ymd(a).slice(0, 7);
+    return [k + '-01', k + '-31', a.getFullYear() + ' 年 ' + (a.getMonth() + 1) + ' 月'];
+  }
+  if (range === 'year') { const y = n.getFullYear() - analyticsOffset; return [y + '-01-01', y + '-12-31', y + ' 年']; }
+  return ['0000-00-00', '9999-99-99', '全部期間'];
+}
+function getFilteredRecordsForRange(range) {
+  const [a, b, label] = periodBounds(range);
+  $('#periodLabel').textContent = label;
+  $('#periodNav').classList.toggle('hidden', range === 'all');
+  $('#periodNext').disabled = analyticsOffset === 0;
+  $('#periodNext').classList.toggle('opacity-30', analyticsOffset === 0);
+  return records.filter(r => r.date >= a && r.date <= b);
+}
+
+function updateAnalytics() {
+  const items = getFilteredRecordsForRange(analyticsRange);
+  let inc = 0, exp = 0;
+  items.forEach(r => r.type === 'income' ? inc += r.amount : exp += r.amount);
+  inc = round2(inc); exp = round2(exp);
+  const net = round2(inc - exp);
+
+  $('#analyticsInc').textContent = fmt(inc);
+  $('#analyticsExp').textContent = fmt(exp);
+  const netEl = $('#analyticsNet');
+  netEl.textContent = fmt(net);
+  netEl.className = 'text-sm sm:text-lg font-bold tabular-nums ' + (net >= 0 ? 'c-income' : 'c-expense');
+
+  // Category breakdown calculation
+  const catMap = {};
+  items.filter(r => r.type === chartMode).forEach(r => {
+    catMap[r.category] = (catMap[r.category] || 0) + r.amount;
+  });
+
+  const sortedCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]);
+  const totalCatAmount = sortedCats.reduce((sum, [, amt]) => sum + amt, 0);
+
+  const breakdownList = $('#categoryBreakdownList');
+  if (!sortedCats.length) {
+    breakdownList.replaceChildren(createElementWithText('div', '該期間尚無相關分類數據', 'text-center py-6 text-slate-400 text-xs'));
+    $('#chartContainer').replaceChildren(createEmptyDonutSVG());
+  } else {
+    const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#64748b'];
+    
+    // Build Donut SVG
+    $('#chartContainer').replaceChildren(createDonutSVG(sortedCats, totalCatAmount, colors));
+
+    // Build breakdown list
+    const breakdownNodes = sortedCats.map(([cat, amt], idx) => {
+      const pct = totalCatAmount > 0 ? ((amt / totalCatAmount) * 100).toFixed(1) : 0;
+      const color = colors[idx % colors.length];
+
+      const row = document.createElement('div');
+      row.className = 'space-y-1 text-xs';
+
+      const header = document.createElement('div');
+      header.className = 'flex justify-between font-medium';
+      
+      const leftSpan = document.createElement('span');
+      leftSpan.className = 'flex items-center gap-1.5';
+      const dot = document.createElement('span');
+      dot.className = 'w-2.5 h-2.5 rounded-full inline-block';
+      dot.style.background = color;
+      leftSpan.append(dot, iconFor(chartMode, cat), ' ', cat);
+
+      const rightSpan = document.createElement('span');
+      rightSpan.className = 'tabular-nums font-bold';
+      rightSpan.textContent = `${fmt(amt)} (${pct}%)`;
+
+      header.append(leftSpan, rightSpan);
+
+      const barBg = document.createElement('div');
+      barBg.className = 'w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden';
+      const barFill = document.createElement('div');
+      barFill.className = 'h-full rounded-full transition-all duration-500';
+      barFill.style.width = `${pct}%`;
+      barFill.style.background = color;
+      barBg.append(barFill);
+
+      row.append(header, barBg);
+      return row;
+    });
+
+    breakdownList.replaceChildren(...breakdownNodes);
+  }
+
+  // Trend Chart Render
+  $('#trendChartSection').classList.remove('hidden');
+  renderTrendChart(items, analyticsRange);
+  const detailItems = sortRecords(items, $('#analyticsSort').value);
+  $('#analyticsRecordCount').textContent = detailItems.length + ' 筆';
+  renderAuxRecordList($('#analyticsRecordList'), detailItems, '本期尚無記帳資料');
+}
+
+function createElementWithText(tag, text, className) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  el.textContent = text;
+  return el;
+}
+
+function createEmptyDonutSVG() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 200 200');
+  svg.setAttribute('class', 'w-40 h-40');
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  circle.setAttribute('cx', '100'); circle.setAttribute('cy', '100'); circle.setAttribute('r', '75');
+  circle.setAttribute('fill', 'none');
+  circle.setAttribute('stroke', 'currentColor');
+  circle.setAttribute('stroke-width', '25');
+  circle.setAttribute('class', 'text-slate-100 dark:text-slate-800');
+  svg.append(circle);
+  return svg;
+}
+
+function createDonutSVG(sortedCats, total, colors) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 200 200');
+  svg.setAttribute('class', 'w-44 h-44');
+
+  let accumulatedAngle = 0;
+  const radius = 75;
+  const circumference = 2 * Math.PI * radius;
+
+  sortedCats.forEach(([cat, amt], idx) => {
+    const pct = amt / total;
+    const strokeDasharray = `${pct * circumference} ${circumference}`;
+    const strokeDashoffset = -accumulatedAngle * circumference;
+    accumulatedAngle += pct;
+
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '100');
+    circle.setAttribute('cy', '100');
+    circle.setAttribute('r', radius);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', colors[idx % colors.length]);
+    circle.setAttribute('stroke-width', '28');
+    circle.setAttribute('stroke-dasharray', strokeDasharray);
+    circle.setAttribute('stroke-dashoffset', strokeDashoffset);
+    circle.setAttribute('transform', 'rotate(-90 100 100)');
+    circle.setAttribute('class', 'transition-all duration-500 hover:opacity-90 cursor-pointer');
+    
+    // Title tooltip equivalent
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = `${cat}: ${fmt(amt)} (${(pct * 100).toFixed(1)}%)`;
+    circle.append(title);
+    svg.append(circle);
+  });
+
+  return svg;
+}
+
+function renderTrendChart(items, range) {
+  const container = $('#trendChartContainer');
+  const dateMap = {};
+  const labels = {};
+  items.forEach(r => {
+    const [year, month, day] = r.date.split('-').map(Number);
+    let key = r.date, label = r.date.slice(5);
+    if (range === 'all') {
+      key = String(year);
+      label = year + '年';
+    } else if (range === 'year') {
+      key = r.date.slice(0, 7);
+      label = String(month).padStart(2, '0') + '月';
+    } else if (range === 'month') {
+      const firstDayOffset = (new Date(year, month - 1, 1).getDay() + 6) % 7;
+      const week = Math.floor((day - 1 + firstDayOffset) / 7) + 1;
+      key = r.date.slice(0, 7) + '-W' + week;
+      label = '第' + week + '週';
+    }
+    if (!dateMap[key]) dateMap[key] = { inc: 0, exp: 0 };
+    labels[key] = label;
+    if (r.type === 'income') dateMap[key].inc += r.amount;
+    else dateMap[key].exp += r.amount;
+  });
+
+  const dates = Object.keys(dateMap).sort();
+  if (!dates.length) {
+    container.replaceChildren(createElementWithText('div', '暫無趨勢圖表數據', 'text-center py-6 text-slate-400 text-xs'));
+    return;
+  }
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const groupWidth = 56;
+  const width = Math.max(dates.length * groupWidth + 20, 320);
+  const height = 210;
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('class', 'flex-none');
+  svg.style.width = width + 'px';
+  svg.style.height = height + 'px';
+
+  const maxVal = Math.max(...Object.values(dateMap).map(d => Math.max(d.inc, d.exp)), 100);
+  const chartHeight = 100;
+  const chartBottom = 122;
+  const appendTotalLabel = (x, y, amount, type) => {
+    const amountLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    amountLabel.setAttribute('x', x);
+    amountLabel.setAttribute('y', y);
+    amountLabel.setAttribute('text-anchor', 'middle');
+    amountLabel.setAttribute('font-size', '10');
+    amountLabel.setAttribute('fill', type === 'income' ? '#047857' : '#c2410c');
+    amountLabel.textContent = fmt(amount);
+    svg.append(amountLabel);
+  };
+
+  dates.forEach((d, i) => {
+    const x = 10 + i * groupWidth;
+    const center = x + groupWidth / 2;
+    const data = dateMap[d];
+    const incH = (data.inc / maxVal) * chartHeight;
+    const expH = (data.exp / maxVal) * chartHeight;
+
+    // Income bar
+    if (data.inc > 0) {
+      const rectInc = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rectInc.setAttribute('x', center - 10);
+      rectInc.setAttribute('y', chartBottom - incH);
+      rectInc.setAttribute('width', '9');
+      rectInc.setAttribute('height', incH);
+      rectInc.setAttribute('rx', '4');
+      rectInc.setAttribute('class', 'fill-c-income');
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = labels[d] + ' 收入：' + fmt(data.inc);
+      rectInc.append(title);
+      svg.append(rectInc);
+    }
+
+    // Expense bar
+    if (data.exp > 0) {
+      const rectExp = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rectExp.setAttribute('x', center + 1);
+      rectExp.setAttribute('y', chartBottom - expH);
+      rectExp.setAttribute('width', '9');
+      rectExp.setAttribute('height', expH);
+      rectExp.setAttribute('rx', '4');
+      rectExp.setAttribute('class', 'fill-c-expense');
+      const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = labels[d] + ' 支出：' + fmt(data.exp);
+      rectExp.append(title);
+      svg.append(rectExp);
+    }
+
+    // Date Label
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', center);
+    text.setAttribute('y', 143);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('font-size', '11');
+    text.setAttribute('fill', '#64748b');
+    text.textContent = labels[d];
+    svg.append(text);
+    appendTotalLabel(center, 163, data.exp, 'expense');
+    appendTotalLabel(center, 181, data.inc, 'income');
+  });
+
+  container.replaceChildren(svg);
+}
+
+/* ---------- Budget & Insights ---------- */
+async function getStoredBudget(ym) {
+  const res = await dbTx('settings', 'readonly', s => s.get('budget_' + ym));
+  return res ? res.amount : 0;
+}
+
+async function saveStoredBudget(ym, amount) {
+  await dbTx('settings', 'readwrite', s => s.put({ key: 'budget_' + ym, amount }));
+  syncNotify();
+}
+
+async function updateBudget() {
+  const now = new Date();
+  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  $('#budgetMonthLabel').textContent = ym + ' 預算';
+
+  const budgetLimit = await getStoredBudget(ym);
+  if (document.activeElement !== $('#budgetInput')) $('#budgetInput').value = budgetLimit || '';
+
+  // Calculate current month expenses
+  const monthExp = records
+    .filter(r => r.date.startsWith(ym) && r.type === 'expense')
+    .reduce((sum, r) => sum + r.amount, 0);
+
+  $('#budgetCurrent').textContent = fmt(monthExp);
+  $('#budgetLimit').textContent = fmt(budgetLimit);
+
+  const bar = $('#budgetProgressBar');
+  const statusText = $('#budgetStatusText');
+  const insightText = $('#aiInsightText');
+
+  if (budgetLimit <= 0) {
+    bar.style.width = '0%';
+    bar.className = 'h-full bg-slate-300 rounded-full transition-all duration-500';
+    statusText.textContent = '尚未設定本月預算上限';
+    statusText.className = 'text-xs font-medium text-center text-slate-400';
+    insightText.textContent = '設定預算後，系統將為您智慧監控每月消費進度！';
+  } else {
+    const ratio = monthExp / budgetLimit;
+    const pct = Math.min(Math.floor(ratio * 100), 100);
+    bar.style.width = pct + '%';
+    
+    if (ratio >= 1) {
+      bar.className = 'h-full bg-rose-500 rounded-full transition-all duration-500';
+      statusText.textContent = `⚠️ 本月預算已超支！已使用 ${Math.round(ratio * 100)}%`;
+      statusText.className = 'text-xs font-bold text-center text-rose-500';
+      insightText.textContent = '警報：本月支出已超越設定預算，建議減少非必要娛樂與購物開銷。';
+    } else if (ratio >= 0.8) {
+      bar.className = 'h-full bg-orange-500 rounded-full transition-all duration-500';
+      statusText.textContent = `⚡ 接近預算上限，目前已使用 ${pct}%`;
+      statusText.className = 'text-xs font-bold text-center text-orange-500';
+      insightText.textContent = '注意：您本月的消費已達 80% 警戒線，請留意剩餘天數的開銷。';
+    } else {
+      bar.className = 'h-full bg-teal-500 rounded-full transition-all duration-500';
+      statusText.textContent = `✅ 財務狀況良好，目前已使用 ${pct}%`;
+      statusText.className = 'text-xs font-medium text-center text-teal-600 dark:text-teal-400';
+      insightText.textContent = '太棒了！您的開銷控制在安全範圍內，持續保持良好的記帳習慣。';
+    }
+  }
+}
+
+/* ---------- Event Listeners & Initialization ---------- */
+function switchTab(tabName) {
+  currentTab = tabName;
+  $$('.tab-btn').forEach(btn => {
+    const active = btn.dataset.tab === tabName;
+    btn.className = `tab-btn flex-1 py-2.5 rounded-xl transition ${active ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 font-semibold shadow-sm' : 'text-slate-600 dark:text-slate-400'}`;
+  });
+
+  $('#viewRecord').classList.toggle('hidden', tabName !== 'record');
+  $('#viewSearch').classList.toggle('hidden', tabName !== 'search');
+  $('#viewAnalytics').classList.toggle('hidden', tabName !== 'analytics');
+  $('#viewBudget').classList.toggle('hidden', tabName !== 'budget');
+  $('#mainTabNav').classList.toggle('hidden', tabName === 'search');
+
+  if (tabName === 'search') renderRecordSearch();
+  if (tabName === 'analytics') updateAnalytics();
+  if (tabName === 'budget') updateBudget();
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  $('#btnBackup').disabled = true;
+  $('#btnSearch').disabled = true;
+  const todayStr = ymd();
+  const shortcutAction = new URLSearchParams(location.search).get('action');
+  if (shortcutAction === 'expense' || shortcutAction === 'income') manualType = shortcutAction;
+  $('#manualDate').value = todayStr;
+  $('#filterMonth').value = todayStr.slice(0, 7);
+  $('#recordSearchFrom').value = todayStr.slice(0, 4) + '-01-01';
+  $('#recordSearchTo').value = todayStr;
+
+  try {
+    db = await openDB();
+    records = (await dbTx('records', 'readonly', s => s.getAll())).map(sanitizeRecord).filter(Boolean);
+  } catch (e) {
+    showToast('瀏覽器儲存空間受限，資料可能無法持久保存');
+  }
+
+  records.forEach(r => lastId = Math.max(lastId, r.id));
+
+  // Legacy localStorage migration check
+  try {
+    const raw = localStorage.getItem('accounting_records');
+    if (raw && !localStorage.getItem('accounting_migrated')) {
+      const list = JSON.parse(raw).map(sanitizeRecord).filter(Boolean);
+      await mergeRecordsIn(list);
+      localStorage.setItem('accounting_migrated', '1');
+      if (list.length) showToast(`成功從舊版移轉 ${list.length} 筆資料`);
+    }
+  } catch (e) {}
+
+  try {
+    if (indexedDB.databases && !localStorage.getItem('ledger_old_migrated')) {
+      if ((await indexedDB.databases()).some(d => d.name === 'ledger')) {
+        const old = await new Promise((res, rej) => {
+          const q = indexedDB.open('ledger');
+          q.onerror = () => rej(q.error);
+          q.onsuccess = () => {
+            const d = q.result;
+            if (!d.objectStoreNames.contains('records')) { d.close(); return res([]); }
+            const g = d.transaction('records').objectStore('records').getAll();
+            g.onsuccess = () => { d.close(); res(g.result); };
+            g.onerror = () => rej(g.error);
+          };
+        });
+        const list = old.map(sanitizeRecord).filter(Boolean);
+        await mergeRecordsIn(list);
+        if (list.length) showToast(`已從上一版轉移 ${list.length} 筆資料`);
+      }
+      localStorage.setItem('ledger_old_migrated', '1');
+    }
+  } catch (e) {}
+
+  try {
+    const savedCategories = await settingsGet('customCategories');
+    if (savedCategories) {
+      customCategories = {
+        expense: Array.isArray(savedCategories.expense) ? savedCategories.expense.filter(n => typeof n === 'string' && n.trim()) : [],
+        income: Array.isArray(savedCategories.income) ? savedCategories.income.filter(n => typeof n === 'string' && n.trim()) : []
+      };
+    }
+  } catch (e) {}
+
+  $$('.type-btn').forEach(btn => {
+    const active = btn.dataset.type === manualType;
+    btn.className = `type-btn py-2 rounded-lg text-sm font-semibold transition ${active ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`;
+  });
+  renderCategoryChips();
+  renderLedger();
+  await updateBackupUI();
+  const folderSetupPrompted = await settingsGet('folderSetupPrompted');
+  const savedFolder = await settingsGet('dirHandle');
+  $('#btnBackup').disabled = false;
+  $('#btnSearch').disabled = false;
+  if (window.showDirectoryPicker && !savedFolder && !folderSetupPrompted) $('#backupSetupDlg').showModal();
+
+  // Tab Listeners
+  $$('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+  $('#btnSearch').onclick = () => { switchTab('search'); $('#recordSearch').focus({ preventScroll: true }); };
+  $('#searchClose').onclick = () => switchTab('record');
+  const tabOrder = ['record', 'analytics', 'budget'];
+  const appMain = $('#appMain');
+  let swipeStart = null, suppressGestureClickUntil = 0;
+  appMain.addEventListener('touchstart', e => {
+    if (currentTab === 'search') { swipeStart = null; return; }
+    if (e.touches.length !== 1) { swipeStart = null; return; }
+    const target = e.target instanceof Element ? e.target : null;
+    if (target && target.closest('input, textarea, select, button, [contenteditable="true"], #trendChartContainer')) { swipeStart = null; return; }
+    swipeStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  appMain.addEventListener('touchend', e => {
+    if (!swipeStart || e.changedTouches.length !== 1) { swipeStart = null; return; }
+    const dx = e.changedTouches[0].clientX - swipeStart.x;
+    const dy = e.changedTouches[0].clientY - swipeStart.y;
+    swipeStart = null;
+    if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+    const next = tabOrder.indexOf(currentTab) + (dx < 0 ? 1 : -1);
+    if (next < 0 || next >= tabOrder.length) return;
+    suppressGestureClickUntil = Date.now() + 500;
+    switchTab(tabOrder[next]);
+  }, { passive: true });
+  appMain.addEventListener('click', e => {
+    if (Date.now() < suppressGestureClickUntil) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
+
+  // Manual Type Toggle
+  $$('.type-btn').forEach(btn => btn.addEventListener('click', () => {
+    manualType = btn.dataset.type;
+    selectedCategory = null;
+    $$('.type-btn').forEach(b => {
+      const active = b.dataset.type === manualType;
+      b.className = `type-btn py-2 rounded-lg text-sm font-semibold transition ${active ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-300 shadow-sm' : 'text-slate-600 dark:text-slate-400'}`;
+    });
+    renderCategoryChips();
+  }));
+
+  // Quick NLP Input
+  $('#quickInput').addEventListener('input', () => {
+    const val = $('#quickInput').value;
+    const p = parseQuickInput(val, { names: { expense: getCategoriesFor('expense'), income: getCategoriesFor('income') }, today: new Date() });
+    const preview = $('#quickPreview');
+    if (!val.trim()) { preview.textContent = ''; return; }
+    if (p.ok) {
+      preview.textContent = `${iconFor(p.type, p.category)} ${p.category}　${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}　${p.date === todayStr ? '今天' : p.date}${p.note ? '　' + p.note : ''}`;
+      preview.className = 'text-xs text-teal-600 dark:text-teal-400 font-medium';
+    } else {
+      preview.textContent = '請加上金額，例如「午餐 120」或「薪水 +50000」';
+      preview.className = 'text-xs text-orange-500';
+    }
+  });
+
+  $('#quickForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const p = parseQuickInput($('#quickInput').value, { names: { expense: getCategoriesFor('expense'), income: getCategoriesFor('income') }, today: new Date() });
+    if (!p.ok) return showToast('無法識別，請加上金額（例如：午餐 120）');
+    const newR = { id: nextId(), date: p.date, type: p.type, category: p.category, amount: p.amount, note: p.note };
+    await dbTx('records', 'readwrite', s => s.put(newR));
+    records.push(newR);
+    $('#quickInput').value = '';
+    $('#quickPreview').textContent = '';
+    renderLedger();
+    updateAnalytics();
+    updateBudget();
+    showToast(`已快速記帳：${p.category} ${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}`);
+  });
+
+  $('#manualNote').addEventListener('input', renderNoteChips);
+  $('#manualAmount').addEventListener('input', renderNoteChips);
+
+  // Manual Form Submit
+  $('#manualForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (manualBusy) return;
+    const amount = round2(parseFloat($('#manualAmount').value));
+    if (!(amount > 0)) return showToast('請輸入大於 0 的金額');
+    const newR = {
+      id: nextId(),
+      date: $('#manualDate').value || todayStr,
+      type: manualType,
+      category: selectedCategory,
+      amount,
+      note: $('#manualNote').value.trim()
+    };
+    manualBusy = true;
+    try { await dbTx('records', 'readwrite', s => s.put(newR)); } finally { manualBusy = false; }
+    records.push(newR);
+    $('#manualAmount').value = '';
+    $('#manualNote').value = '';
+    $('#manualDate').value = todayStr;
+    selectedCategory = null;
+    renderCategoryChips();
+    renderLedger();
+    updateAnalytics();
+    updateBudget();
+    showToast(`成功新增：${newR.category} ${newR.type === 'income' ? '+' : '-'}${fmt(newR.amount)}`, '復原', () => undoAdd(newR));
+  });
+
+  // Filter List Events
+  $('#filterMonth').addEventListener('change', renderLedger);
+  $('#ledgerSort').addEventListener('change', renderLedger);
+  $('#recordSearch').addEventListener('input', renderRecordSearch);
+  $('#searchSort').addEventListener('change', renderRecordSearch);
+  $('#analyticsSort').addEventListener('change', updateAnalytics);
+  $('#btnShowAll').addEventListener('click', () => { $('#filterMonth').value = ''; renderLedger(); });
+
+  // Analytics Range Switchers
+  $$('.range-btn').forEach(btn => btn.addEventListener('click', () => {
+    analyticsRange = btn.dataset.range;
+    $$('.range-btn').forEach(b => {
+      const active = b.dataset.range === analyticsRange;
+      b.className = `range-btn flex-1 py-2 rounded-xl transition ${active ? 'bg-white dark:bg-slate-800 text-teal-600 shadow-sm font-semibold' : 'text-slate-600 dark:text-slate-400'}`;
+    });
+    updateAnalytics();
+  }));
+
+  // Chart Mode Toggle (Expense / Income)
+  $('#chartTypeExp').addEventListener('click', () => {
+    chartMode = 'expense';
+    $('#chartTypeExp').className = 'px-2.5 py-1 rounded-md bg-white dark:bg-slate-700 font-semibold shadow-sm';
+    $('#chartTypeInc').className = 'px-2.5 py-1 rounded-md text-slate-500';
+    updateAnalytics();
+  });
+  $('#chartTypeInc').addEventListener('click', () => {
+    chartMode = 'income';
+    $('#chartTypeInc').className = 'px-2.5 py-1 rounded-md bg-white dark:bg-slate-700 font-semibold shadow-sm';
+    $('#chartTypeExp').className = 'px-2.5 py-1 rounded-md text-slate-500';
+    updateAnalytics();
+  });
+
+  // Budget Save Event
+  $('#btnSaveBudget').addEventListener('click', async () => {
+    const val = parseFloat($('#budgetInput').value);
+    if (isNaN(val) || val < 0) return showToast('請輸入有效的預算金額');
+    const now = new Date();
+    const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    await saveStoredBudget(ym, val);
+    updateBudget();
+    showToast('本月預算已成功更新！');
+  });
+
+  // Export / Import
+  $('#bkImportJson').addEventListener('click', () => $('#fileInput').click());
+  $('#bkImportCsv').addEventListener('click', () => $('#csvInput').click());
+  $('#fileInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const parsed = parseBackup(await file.text());
+      const list = parsed.records, st = parsed.settings;
+      if (!list.length && !st) return showToast('JSON 沒有可匯入的有效紀錄');
+      const known = new Set(records.map(r => r.id));
+      const overwrite = list.filter(r => r.id != null && known.has(r.id)).length;
+      const parts = [`${list.length} 筆紀錄（${overwrite} 筆與現有 ID 相同會被覆蓋${parsed.skipped ? `，另有 ${parsed.skipped} 筆格式無效會略過` : ''}）`];
+      parts.push(st ? `設定：${describeSettings(st).join('、')}（預算同月份覆蓋、自訂類別合併）` : (parsed.version < 2 ? '此檔不含設定（舊版格式）' : '此檔不含設定'));
+      if (!confirm(`準備匯入 ${parts.join('；')}。${parsed.newer ? '注意：此備份來自較新版本，部分內容可能無法辨識。' : ''}匯入前會先暫存目前的記錄，可在「資料管理」還原。確定繼續？`)) return;
+      await settingsPut({ key: 'pre-restore', data: records });
+      await mergeRecordsIn(list);
+      const applied = await applySettings(st);
+      refreshAll(); updateBackupUI();
+      showToast(`已匯入 ${list.length} 筆紀錄` + (applied.length ? `，並套用${applied.join('、')}` : ''));
+    } catch (err) {
+      logError('import-json', err);
+      showToast('檔案格式錯誤，無法順利匯入');
+    }
+  });
+  $('#csvInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const { records: imported, skipped, hasIdColumn, missingIds } = parseCSVRecords(await file.text());
+      if (!imported.length) return showToast('CSV 沒有可匯入的有效紀錄');
+      const idNotice = hasIdColumn
+        ? `同 ID 紀錄會覆蓋既有資料${missingIds ? `；${missingIds} 列沒有有效 ID，會新增為新紀錄` : ''}`
+        : 'CSV 不含 ID，會新增為新紀錄；重複匯入可能產生重複資料';
+      if (!confirm(`準備匯入 ${imported.length} 筆紀錄。${idNotice}。${skipped ? `另有 ${skipped} 列格式無效會略過。` : ''}CSV 只含記錄，不含預算與設定。匯入前會先暫存目前的記錄，可在「資料管理」還原。確定繼續？`)) return;
+      await settingsPut({ key: 'pre-restore', data: records });
+      await mergeRecordsIn(imported);
+      renderLedger(); updateAnalytics(); updateBudget(); updateBackupUI();
+      showToast(`CSV 已匯入 ${imported.length} 筆` + (skipped ? `，略過 ${skipped} 列無效資料` : ''));
+    } catch (err) {
+      logError('import-csv', err);
+      showToast('CSV 格式錯誤，請確認欄位包含日期、類型、類別、金額、備註');
+    }
+  });
+
+  // PWA Service Worker Registration
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    // 已有舊版 SW 接管時，新版 SW 接手代表有新版本；首次安裝不提示
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) showToast('有新版本可用', '立即更新', () => location.reload(), 60000);
+    });
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      let lastCheck = Date.now();
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && Date.now() - lastCheck > 36e5) { lastCheck = Date.now(); reg.update().catch(() => {}); }
+      });
+    }).catch(e => logError('sw', e));
+  }
+  if (shortcutAction === 'expense' || shortcutAction === 'income') $('#manualAmount').focus({ preventScroll: true });
+});
+</script>
+<dialog id="editDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <form id="editForm" class="p-4 space-y-3">
+    <h3 class="font-bold">編輯紀錄</h3>
+    <div class="grid grid-cols-2 gap-2">
+      <select id="eType" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><option value="expense">支出</option><option value="income">收入</option></select>
+      <input id="eAmount" type="number" inputmode="decimal" enterkeyhint="next" step="any" min="0" required placeholder="金額" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
+    </div>
+    <select id="eCat" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+    <div class="grid grid-cols-2 gap-2"><input id="eDate" type="date" required class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><input id="eNote" maxlength="100" enterkeyhint="done" autocomplete="off" placeholder="備註" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"></div>
+    <div class="flex gap-2">
+      <button type="button" id="eDel" class="px-4 py-3 rounded-xl text-orange-600 bg-orange-50 dark:bg-slate-800 font-semibold">刪除</button>
+      <button type="button" id="eCancel" class="flex-1 py-3 rounded-xl bg-slate-100 dark:bg-slate-800 font-semibold">取消</button>
+      <button type="submit" class="flex-1 py-3 rounded-xl bg-teal-600 text-white font-semibold">儲存</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="categoryManagerDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="font-bold">管理自訂類別</h3>
+      <button type="button" id="categoryManagerClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <select id="manageCategoryType" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base">
+      <option value="expense">支出類別</option><option value="income">收入類別</option>
+    </select>
+    <button type="button" id="addManagedCategory" class="w-full px-4 py-3 rounded-xl font-semibold bg-teal-600 text-white">新增類別</button>
+    <div id="managedCategoryList" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+  </div>
+</dialog>
+<script>
+const refreshAll = () => { renderCategoryChips(); renderLedger(); updateAnalytics(); updateBudget(); };
+const undoAdd = async n => { await dbTx('records', 'readwrite', s => s.delete(n.id)); records = records.filter(x => x.id !== n.id); refreshAll(); };
+
+/* 編輯 */
+let editing = null;
+function fillEditCats(selected = $('#eCat').value) {
+  const names = getCategoriesFor($('#eType').value);
+  if (selected && !names.includes(selected)) names.push(selected);
+  $('#eCat').replaceChildren(...names.map(name => {
+    const option = document.createElement('option');
+    option.value = name; option.textContent = name;
+    return option;
+  }));
+  if (selected) $('#eCat').value = selected;
+}
+function openEdit(r) {
+  editing = r;
+  $('#eType').value = r.type; $('#eAmount').value = r.amount; $('#eDate').value = r.date; $('#eNote').value = r.note || '';
+  fillEditCats(r.category); $('#editDlg').showModal();
+}
+/* 常用項目：近 90 天出現 2 次以上的同類別／備註／金額，點一下記今天 */
+function renderFrequent() {
+  const wrap = $('#frequentWrap'); if (!wrap) return;
+  const cut = ymd(new Date(Date.now() - 90 * 864e5)), m = new Map();
+  records.forEach(r => {
+    if (r.date < cut) return;
+    const k = [r.type, r.category, r.note, r.amount].join('\u0001'), c = m.get(k) || { r, n: 0, last: '' };
+    c.n++; if (r.date > c.last) c.last = r.date; m.set(k, c);
+  });
+  const top = [...m.values()].filter(c => c.n >= 2).sort((a, b) => b.n - a.n || (a.last < b.last ? 1 : -1)).slice(0, 6);
+  wrap.classList.toggle('hidden', !top.length);
+  wrap.replaceChildren(...top.map(({ r }) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'flex-none px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm shadow-sm active:scale-95 transition';
+    b.textContent = iconFor(r.type, r.category) + ' ' + (r.note || r.category) + ' ' + fmt(r.amount);
+    b.onclick = async () => {
+      const n = { id: nextId(), date: ymd(), type: r.type, category: r.category, amount: r.amount, note: r.note };
+      await dbTx('records', 'readwrite', s => s.put(n)); records.push(n); refreshAll();
+      showToast('已記：' + n.category + ' ' + (n.type === 'income' ? '+' : '-') + fmt(n.amount), '復原', () => undoAdd(n));
+    };
+    return b;
+  }));
+}
+function shiftMonth(d) {
+  const f = $('#filterMonth'), [y, m] = (f.value || ymd().slice(0, 7)).split('-').map(Number), n = new Date(y, m - 1 + d, 1);
+  f.value = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0'); renderLedger();
+}
+const THEME_OPTIONS = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'purple', 'black', 'white'];
+const COLOR_MODES = ['light', 'dark', 'system'];
+/* ---------- 收入／支出顏色（使用者自訂，存 localStorage，並隨 JSON 備份） ---------- */
+const FLOW_KEYS = { income: 'ledger_income_color', expense: 'ledger_expense_color' };
+const FLOW_PALETTE = ['#059669', '#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#dc2626', '#ca8a04'];
+const FLOW_NAMES = { '#059669': '綠', '#0d9488': '青', '#2563eb': '藍', '#7c3aed': '紫', '#db2777': '粉紅', '#ea580c': '橘', '#dc2626': '紅', '#ca8a04': '黃' };
+const isHexColor = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+const flowColors = { income: '', expense: '' };
+function applyFlowColor(type, color, persist = false) {
+  const valid = isHexColor(color) ? color.toLowerCase() : '';
+  flowColors[type] = valid;
+  const root = document.documentElement;
+  if (valid) root.style.setProperty('--' + type + '-user', valid); else root.style.removeProperty('--' + type + '-user');
+  if (persist) {
+    try { if (valid) localStorage.setItem(FLOW_KEYS[type], valid); else localStorage.removeItem(FLOW_KEYS[type]); } catch (e) {}
+  }
+  renderFlowColorUI(type);
+}
+function renderFlowColorUI(type) {
+  const box = document.querySelector(`[data-flow-swatches="${type}"]`);
+  if (!box) return;
+  const cur = flowColors[type], label = type === 'income' ? '收入' : '支出';
+  const def = document.createElement('button');
+  def.type = 'button'; def.className = 'flow-default' + (cur ? '' : ' flow-selected'); def.textContent = '預設';
+  def.setAttribute('aria-pressed', String(!cur));
+  def.onclick = () => applyFlowColor(type, '', true);
+  const dots = FLOW_PALETTE.map(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'flow-swatch' + (cur === c ? ' flow-selected' : ''); b.style.backgroundColor = c;
+    b.title = b.ariaLabel = label + '顏色：' + FLOW_NAMES[c];
+    b.setAttribute('aria-pressed', String(cur === c));
+    b.onclick = () => applyFlowColor(type, c, true);
+    return b;
+  });
+  const custom = document.createElement('input');
+  custom.type = 'color'; custom.className = 'flow-color-input'; custom.title = '自訂' + label + '顏色'; custom.setAttribute('aria-label', '自訂' + label + '顏色');
+  custom.value = cur || (type === 'income' ? '#059669' : '#ea580c');
+  // 選色過程即時預覽；放開（change）才儲存並重繪，避免選色器被重建而關閉
+  custom.oninput = () => document.documentElement.style.setProperty('--' + type + '-user', custom.value);
+  custom.onchange = () => applyFlowColor(type, custom.value, true);
+  box.replaceChildren(def, ...dots, custom);
+}
+function applyTheme(theme, persist = false) {
+  const validTheme = THEME_OPTIONS.includes(theme) ? theme : '';
+  if (validTheme) document.documentElement.dataset.theme = validTheme;
+  else document.documentElement.removeAttribute('data-theme');
+  $$('.theme-option').forEach(btn => {
+    const active = btn.dataset.themeOption === validTheme;
+    btn.classList.toggle('theme-selected', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  if (persist) {
+    try {
+      if (validTheme) localStorage.setItem('ledger_theme', validTheme);
+      else localStorage.removeItem('ledger_theme');
+    } catch (e) {}
+  }
+}
+function applyColorMode(mode, persist = false) {
+  const validMode = COLOR_MODES.includes(mode) ? mode : 'system';
+  document.documentElement.dataset.colorMode = validMode;
+  document.documentElement.style.colorScheme = validMode === 'system' ? 'light dark' : validMode;
+  $$('[data-mode-option]').forEach(btn => {
+    const active = btn.dataset.modeOption === validMode;
+    btn.classList.toggle('mode-selected', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  if (persist) {
+    try { localStorage.setItem('ledger_color_mode', validMode); } catch (e) {}
+  }
+}
+async function clearAllRecords() {
+  if (!records.length) return showToast('目前沒有記帳記錄');
+  if (!confirm(`確定刪除全部 ${records.length} 筆記帳明細嗎？刪除前會先暫存一份，可在「資料管理」還原。`)) return;
+  await settingsPut({ key: 'pre-restore', data: records });
+  await dbTx('records', 'readwrite', s => s.clear());
+  records = [];
+  $('#backupDlg').close();
+  refreshAll();
+  updateBackupUI();
+  showToast('已刪除全部記帳記錄');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    applyTheme(localStorage.getItem('ledger_theme'));
+    applyColorMode(localStorage.getItem('ledger_color_mode'));
+    applyFlowColor('income', localStorage.getItem(FLOW_KEYS.income));
+    applyFlowColor('expense', localStorage.getItem(FLOW_KEYS.expense));
+  } catch (e) {
+    applyTheme('');
+    applyColorMode('system');
+    applyFlowColor('income', ''); applyFlowColor('expense', '');
+  }
+  $('#btnPreferences').onclick = () => $('#preferencesDlg').showModal();
+  $('#preferencesClose').onclick = () => $('#preferencesDlg').close();
+  $$('.theme-option').forEach(btn => btn.addEventListener('click', () => applyTheme(btn.dataset.themeOption, true)));
+  $$('[data-mode-option]').forEach(btn => btn.addEventListener('click', () => applyColorMode(btn.dataset.modeOption, true)));
+  $('#monthPrev').onclick = () => shiftMonth(-1);
+  $('#monthNext').onclick = () => shiftMonth(1);
+  $('#periodPrev').onclick = () => { analyticsOffset++; updateAnalytics(); };
+  $('#periodNext').onclick = () => { if (analyticsOffset > 0) { analyticsOffset--; updateAnalytics(); } };
+  $$('.range-btn').forEach(b => b.addEventListener('click', () => { analyticsOffset = 0; updateAnalytics(); }));
+  $('#eType').onchange = () => fillEditCats($('#eCat').value);
+  $('#manageCategoriesBtn').onclick = () => {
+    $('#manageCategoryType').value = manualType;
+    renderCategoryManager();
+    $('#categoryManagerDlg').showModal();
+  };
+  $('#manageCategoryType').onchange = renderCategoryManager;
+  $('#addManagedCategory').onclick = () => {
+    const name = (prompt('請輸入新類別名稱（最多 20 個字）') || '').trim();
+    if (name) addCustomCategory($('#manageCategoryType').value, name);
+  };
+  $('#categoryManagerClose').onclick = () => $('#categoryManagerDlg').close();
+  $('#eCancel').onclick = () => $('#editDlg').close();
+  $('#eDel').onclick = () => { $('#editDlg').close(); deleteRecord(editing); };
+  $('#recordSearchFrom').addEventListener('input', renderRecordSearch);
+  $('#recordSearchTo').addEventListener('input', renderRecordSearch);
+  $('#editForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const u = sanitizeRecord({ id: editing.id, type: $('#eType').value, amount: $('#eAmount').value, category: $('#eCat').value, date: $('#eDate').value, note: $('#eNote').value });
+    if (!u) return showToast('資料不正確，請檢查金額與日期');
+    await dbTx('records', 'readwrite', s => s.put(u));
+    records = records.map(x => x.id === u.id ? u : x);
+    $('#editDlg').close(); refreshAll(); showToast('已更新紀錄');
+  });
+});
+</script>
+<dialog id="backupDlg" class="w-[92vw] max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[4vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-3">
+    <div class="flex items-center justify-between gap-3">
+      <h3 class="font-bold">資料管理</h3>
+      <button type="button" id="bkClose" title="關閉" aria-label="關閉" class="w-10 h-10 flex-none p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition">✕</button>
+    </div>
+    <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
+    <p class="text-xs text-slate-400">JSON 含記錄、預算、自訂類別與外觀設定（自動備份檔格式相同）；CSV 只含記錄，可用 Excel 開啟。</p>
+    <div class="grid grid-cols-2 gap-2">
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON</button>
+      <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
+      <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
+      <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
+    </div>
+    <h4 class="border-t border-slate-100 dark:border-slate-800 pt-3 text-sm font-semibold">備份設定</h4>
+    <div class="flex items-end gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
+      <label for="backupReminderDays" class="flex-1 space-y-1 text-xs font-medium text-slate-500 dark:text-slate-400">未備份提醒（天）
+        <input id="backupReminderDays" type="number" min="1" max="365" step="1" inputmode="numeric" class="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
+      </label>
+      <button type="button" id="bkSaveReminder" class="px-3 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-sm font-semibold">儲存</button>
+    </div>
+    <button type="button" id="bkPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition">選擇備份資料夾</button>
+    <p id="bkFolder" class="text-sm text-slate-500 dark:text-slate-400"></p>
+    <p id="bkStatus" class="text-xs text-slate-500 dark:text-slate-400"></p>
+    <h4 class="font-semibold text-sm pt-2">App 內快照（最近 7 份）</h4>
+    <p class="text-xs text-slate-400">快照存在這個瀏覽器裡，清除網站資料時會一起消失，不能取代匯出備份。</p>
+    <div id="bkSnaps" class="divide-y divide-slate-100 dark:divide-slate-800"></div>
+    <details id="bkDiag" class="border-t border-slate-100 dark:border-slate-800 pt-3">
+      <summary style="cursor:pointer" class="text-sm font-semibold">診斷資訊</summary>
+      <div style="margin-top:.5rem" class="space-y-2">
+        <pre id="bkDiagText" style="white-space:pre-wrap;word-break:break-all;max-height:12rem;overflow-y:auto" class="whitespace-pre-wrap break-all text-xs bg-slate-50 dark:bg-slate-800/60 rounded-lg p-2 max-h-48 overflow-y-auto"></pre>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" id="bkDiagCopy" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">複製診斷資訊</button>
+          <button type="button" id="bkDiagClear" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">清除錯誤紀錄</button>
+        </div>
+      </div>
+    </details>
+    <div class="border-t border-slate-100 dark:border-slate-800 pt-3 space-y-2">
+      <p class="text-xs text-slate-500 dark:text-slate-400">只刪除記帳明細；預算、外觀設定與備份快照會保留。</p>
+      <button type="button" id="btnClearRecords" class="w-full px-4 py-3 rounded-xl text-orange-600 bg-orange-50 dark:bg-slate-800 dark:text-orange-400 font-semibold">刪除所有記錄</button>
+    </div>
+  </div>
+</dialog>
+<dialog id="backupSetupDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-5 space-y-4">
+    <h3 class="font-bold">設定備份資料夾</h3>
+    <p class="text-sm text-slate-500 dark:text-slate-400">選擇資料夾後，自動備份與手動匯出的檔案都會直接存入此資料夾。</p>
+    <button type="button" id="bkSetupPick" class="w-full px-4 py-3 rounded-xl font-semibold bg-teal-600 text-white">選擇資料夾</button>
+    <button type="button" id="bkSetupLater" class="w-full px-4 py-3 rounded-xl font-semibold bg-slate-100 dark:bg-slate-800">稍後設定</button>
+  </div>
+</dialog>
+<dialog id="preferencesDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-4">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold">外觀設定</h3>
+      <button type="button" id="preferencesClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <fieldset class="space-y-2">
+      <legend class="text-sm font-semibold">整體色調</legend>
+      <div class="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1">
+        <button type="button" data-mode-option="light" aria-pressed="false" class="mode-option rounded-lg py-2 text-sm transition">淺色</button>
+        <button type="button" data-mode-option="dark" aria-pressed="false" class="mode-option rounded-lg py-2 text-sm transition">深色</button>
+        <button type="button" data-mode-option="system" aria-pressed="true" class="mode-option rounded-lg py-2 text-sm transition">系統</button>
+      </div>
+    </fieldset>
+    <fieldset class="space-y-2">
+      <legend class="text-sm font-semibold">介面顏色</legend>
+      <div class="grid grid-cols-3 gap-2">
+        <button type="button" data-theme-option="red" aria-label="莫蘭迪紅" title="莫蘭迪紅" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#a85f68"></span>紅</button>
+        <button type="button" data-theme-option="orange" aria-label="莫蘭迪橘" title="莫蘭迪橘" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#ad7658"></span>橘</button>
+        <button type="button" data-theme-option="yellow" aria-label="莫蘭迪黃" title="莫蘭迪黃" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#967a3f"></span>黃</button>
+        <button type="button" data-theme-option="green" aria-label="莫蘭迪綠" title="莫蘭迪綠" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#5f806d"></span>綠</button>
+        <button type="button" data-theme-option="blue" aria-label="莫蘭迪藍" title="莫蘭迪藍" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#607d99"></span>藍</button>
+        <button type="button" data-theme-option="indigo" aria-label="莫蘭迪靛" title="莫蘭迪靛" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#706e91"></span>靛</button>
+        <button type="button" data-theme-option="purple" aria-label="莫蘭迪紫" title="莫蘭迪紫" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#92738f"></span>紫</button>
+        <button type="button" data-theme-option="black" aria-label="黑白主題：黑" title="黑白主題：黑" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#454545"></span>黑</button>
+        <button type="button" data-theme-option="white" aria-label="黑白主題：白" title="黑白主題：白" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#ffffff"></span>白</button>
+      </div>
+    </fieldset>
+    <fieldset class="space-y-3">
+      <legend class="text-sm font-semibold">收入與支出顏色</legend>
+      <div class="space-y-2" data-flow="income">
+        <div class="flex items-center justify-between text-sm"><span>收入</span><b class="c-income tabular-nums">+$1,234</b></div>
+        <div class="flex flex-wrap items-center gap-2" data-flow-swatches="income"></div>
+      </div>
+      <div class="space-y-2" data-flow="expense">
+        <div class="flex items-center justify-between text-sm"><span>支出</span><b class="c-expense tabular-nums">-$567</b></div>
+        <div class="flex flex-wrap items-center gap-2" data-flow-swatches="expense"></div>
+      </div>
+      <p class="text-xs text-slate-400">自訂顏色在淺色與深色模式共用，請選對比足夠、容易閱讀的顏色；「預設」會依模式自動調整。</p>
+    </fieldset>
+  </div>
+</dialog>
+<script>
+let needPerm = false, bkTimer = null, persistAsked = false, backupHandle = null;
+let bkPending = false, datedStale = false, lastDatedDay = '';
+const settingsGet = k => dbTx('settings', 'readonly', s => s.get(k));
+const settingsPut = o => dbTx('settings', 'readwrite', s => s.put(o));
+
+/* ---------- 統一的備份格式 ----------
+   JSON（手動匯出、備份資料夾 latest／日期檔）一律是同一種 v2 結構：
+   { app, version, exportedAt, records: [...], settings: { budgets, customCategories, backupReminderDays, theme, colorMode, incomeColor, expenseColor } }
+   匯入同時相容 v1（純記錄陣列）。CSV 只含記錄；App 內快照也只含記錄。 */
+const BACKUP_APP = 'smart-ledger', BACKUP_VERSION = 2;
+const backupName = (ext, tag) => 'smart-ledger_' + (tag || ymd()) + '.' + ext;
+
+async function collectSettings() {
+  const out = { customCategories: { expense: [...customCategories.expense], income: [...customCategories.income] } };
+  try {
+    const rd = await settingsGet('backupReminderDays');
+    if (rd && Number.isInteger(rd.days)) out.backupReminderDays = rd.days;
+    const rows = (await dbTx('settings', 'readonly', s => s.getAll(IDBKeyRange.bound('budget_', 'budget_\uffff')))) || [];
+    const budgets = {};
+    rows.forEach(b => { const m = /^budget_(\d{4}-\d{2})$/.exec(b.key); if (m && isFinite(b.amount) && b.amount >= 0) budgets[m[1]] = b.amount; });
+    if (Object.keys(budgets).length) out.budgets = budgets;
+  } catch (e) { logError('settings', e); }
+  try {
+    out.theme = localStorage.getItem('ledger_theme') || '';
+    out.colorMode = localStorage.getItem('ledger_color_mode') || 'system';
+    out.incomeColor = localStorage.getItem(FLOW_KEYS.income) || '';
+    out.expenseColor = localStorage.getItem(FLOW_KEYS.expense) || '';
+  } catch (e) {}
+  return out;
+}
+async function backupText(list = records) {
+  return JSON.stringify({ app: BACKUP_APP, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), records: list, settings: await collectSettings() }, null, 2);
+}
+function sanitizeSettings(x) {
+  if (!x || typeof x !== 'object') return null;
+  const out = {};
+  if (x.customCategories && typeof x.customCategories === 'object') out.customCategories = { expense: cleanNames(x.customCategories.expense), income: cleanNames(x.customCategories.income) };
+  if (x.budgets && typeof x.budgets === 'object') {
+    const budgets = {};
+    Object.entries(x.budgets).forEach(([k, v]) => { const n = Number(v); if (/^\d{4}-\d{2}$/.test(k) && isFinite(n) && n >= 0 && n <= 1e10) budgets[k] = n; });
+    if (Object.keys(budgets).length) out.budgets = budgets;
+  }
+  const d = Number(x.backupReminderDays);
+  if (Number.isInteger(d) && d >= 1 && d <= 365) out.backupReminderDays = d;
+  if (typeof x.theme === 'string' && (x.theme === '' || THEME_OPTIONS.includes(x.theme))) out.theme = x.theme;
+  if (COLOR_MODES.includes(x.colorMode)) out.colorMode = x.colorMode;
+  ['incomeColor', 'expenseColor'].forEach(k => { if (typeof x[k] === 'string' && (x[k] === '' || isHexColor(x[k]))) out[k] = x[k].toLowerCase(); });
+  return Object.keys(out).length ? out : null;
+}
+function parseBackup(text) {
+  const raw = JSON.parse(String(text).replace(/^\uFEFF/, ''));
+  let list, rawSettings = null, version = 1;
+  if (Array.isArray(raw)) list = raw;
+  else if (raw && typeof raw === 'object' && Array.isArray(raw.records)) {
+    if (raw.app && raw.app !== BACKUP_APP) throw new Error('not a ledger backup');
+    list = raw.records; rawSettings = raw.settings; version = Number(raw.version) || 1;
+  } else throw new Error('unrecognized format');
+  const recs = list.map(sanitizeRecord).filter(Boolean);
+  return { records: recs, skipped: list.length - recs.length, settings: sanitizeSettings(rawSettings), version, newer: version > BACKUP_VERSION };
+}
+function describeSettings(st) {
+  const a = [];
+  if (st.budgets) a.push(`預算 ${Object.keys(st.budgets).length} 個月`);
+  if (st.customCategories) a.push('自訂類別');
+  if (st.backupReminderDays) a.push('備份提醒天數');
+  if ('theme' in st || st.colorMode || 'incomeColor' in st || 'expenseColor' in st) a.push('外觀');
+  return a;
+}
+async function applySettings(st) {
+  if (!st) return [];
+  if (st.customCategories) {
+    const merged = {};
+    ['expense', 'income'].forEach(t => { merged[t] = [...new Set([...(customCategories[t] || []), ...st.customCategories[t]])]; });
+    await settingsPut({ key: 'customCategories', expense: merged.expense, income: merged.income });
+    customCategories = merged;
+  }
+  if (st.budgets) await dbTx('settings', 'readwrite', s => { Object.entries(st.budgets).forEach(([ym, amount]) => s.put({ key: 'budget_' + ym, amount })); });
+  if (st.backupReminderDays) await settingsPut({ key: 'backupReminderDays', days: st.backupReminderDays });
+  if ('theme' in st) applyTheme(st.theme, true);
+  if (st.colorMode) applyColorMode(st.colorMode, true);
+  if ('incomeColor' in st) applyFlowColor('income', st.incomeColor, true);
+  if ('expenseColor' in st) applyFlowColor('expense', st.expenseColor, true);
+  syncNotify();
+  return describeSettings(st);
+}
+
+function scheduleBackup() { bkPending = true; clearTimeout(bkTimer); bkTimer = setTimeout(() => runBackup(), 1500); }
+async function markExport() { await settingsPut({ key: 'lastExport', at: Date.now() }); updateBackupUI(); }
+
+async function runBackup(forceDated = false) {
+  bkPending = false;
+  if (!records.length) return null;
+  const day = ymd(), data = await backupText(records);
+  try {
+    await settingsPut({ key: 'snap:' + day, data: records });
+    const keys = (await dbTx('settings', 'readonly', s => s.getAllKeys())).filter(k => String(k).startsWith('snap:')).sort();
+    const old = keys.slice(0, -7);
+    if (old.length) await dbTx('settings', 'readwrite', s => { old.forEach(k => s.delete(k)); });
+    if (!persistAsked && navigator.storage && navigator.storage.persist) { persistAsked = true; navigator.storage.persist().catch(() => {}); }
+  } catch (e) {}
+  // 每次變更只更新 latest；日期檔每天第一次與頁面進背景時才寫，避免每筆記帳都寫兩份＋掃描資料夾
+  const withDated = forceDated || lastDatedDay !== day;
+  const written = await writeFolder(data, day, withDated);
+  if (written) { if (withDated) lastDatedDay = day; datedStale = !withDated; }
+  if (written) await markExport(); else updateBackupUI();
+  return written;
+}
+
+async function writeFolder(data, day, withDated = true) {
+  if (!window.showDirectoryPicker) return false;
+  try {
+    const rec = await settingsGet('dirHandle');
+    if (!rec) return false;
+    backupHandle = rec.handle;
+    if (await backupHandle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
+    needPerm = false;
+    const put = async (name, text) => { const w = await (await backupHandle.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
+    await put(backupName('json', 'latest'), data);
+    if (!withDated) return true;
+    await put(backupName('json', day), data);
+    const cut = ymd(new Date(Date.now() - 6 * 864e5)), names = [];
+    for await (const [name] of backupHandle.entries()) names.push(name);
+    for (const n of names) { const m = n.match(/^(?:smart-ledger_|ledger-)(\d{4}-\d{2}-\d{2})\.json$/); if (m && m[1] < cut) await backupHandle.removeEntry(n); }
+    return true;
+  } catch (e) { return false; }
+}
+
+async function pickFolder() {
+  try {
+    const h = await showDirectoryPicker({ mode: 'readwrite' });
+    backupHandle = h;
+    await settingsPut({ key: 'dirHandle', handle: h });
+    needPerm = false;
+    await settingsPut({ key: 'folderSetupPrompted', shown: true });
+    $('#backupSetupDlg').close();
+    const hadRecords = records.length > 0;
+    const written = await runBackup();
+    showToast(!hadRecords || written ? '已設定資料夾，自動備份與匯出檔案會直接存入此資料夾' : '資料夾已設定，但備份寫入失敗；請確認資料夾權限');
+  } catch (e) { if (e.name !== 'AbortError') showToast('無法使用這個資料夾，請改選其他資料夾'); }
+  updateBackupUI();
+}
+async function regrant() {
+  try {
+    const rec = await settingsGet('dirHandle');
+    if (rec && await rec.handle.requestPermission({ mode: 'readwrite' }) === 'granted') { needPerm = false; await runBackup(); showToast('已重新授權備份資料夾'); }
+  } catch (e) {}
+  updateBackupUI();
+}
+async function getBackupDirectory(selectIfMissing, requestPermission) {
+  if (!window.showDirectoryPicker) return null;
+  try {
+    if (!backupHandle) {
+      if (!selectIfMissing) return null;
+      backupHandle = await showDirectoryPicker({ mode: 'readwrite' });
+      await settingsPut({ key: 'dirHandle', handle: backupHandle });
+      await settingsPut({ key: 'folderSetupPrompted', shown: true });
+    }
+    let permission = await backupHandle.queryPermission({ mode: 'readwrite' });
+    if (permission !== 'granted' && requestPermission) permission = await backupHandle.requestPermission({ mode: 'readwrite' });
+    if (permission !== 'granted') { needPerm = true; return null; }
+    needPerm = false;
+    return backupHandle;
+  } catch (e) { if (e.name !== 'AbortError') { needPerm = true; logError('folder', e); } return null; }
+}
+
+function downloadExport(file) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.style.display = 'none';
+  // modal dialog 開啟時，dialog 以外的元素是 inert；錨點放進 dialog 內才確保點得動
+  (document.querySelector('dialog[open]') || document.body).append(a);
+  a.click();
+  setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 60000);
+}
+
+function canShareFile(file) {
+  try {
+    return typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare({ files: [file] }));
+  } catch (e) { return false; }
+}
+
+const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
+
+async function exportJSONToFolder() {
+  if (!records.length) return showToast('目前沒有資料可以匯出');
+  const name = backupName('json');
+  const mk = async () => new File([await backupText(records)], name, { type: 'application/json' });
+  if (!window.showDirectoryPicker) {
+    downloadExport(await mk());
+    await markExport();
+    return showToast('此瀏覽器無法寫入資料夾，已改為下載 JSON');
+  }
+  // 第一個 await 就要是 getBackupDirectory：選資料夾／要求權限都需要點擊手勢
+  const dir = await getBackupDirectory(true, true);
+  if (!dir) { updateBackupUI(); return showToast('未選擇資料夾或未授權，沒有匯出'); }
+  let file = null;
+  try {
+    file = await mk();
+    const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
+    await writable.write(file); await writable.close();
+    await markExport();
+    showToast('已匯出到備份資料夾：' + name);
+  } catch (e) {
+    logError('export', e);
+    showToast(`寫入資料夾失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', async () => { downloadExport(file || await mk()); markExport(); });
+  }
+}
+
+async function exportCSVShare() {
+  if (!records.length) return showToast('目前沒有資料可以匯出');
+  // MIME 不要帶 ;charset=…，否則 canShare 常回傳 false（BOM 已確保 Excel 開啟不亂碼）
+  const file = new File([buildCSV(records)], backupName('csv'), { type: 'text/csv' });
+  await shareExportFile(file, '記帳備份 CSV');
+}
+
+async function shareExportFile(file, title) {
+  const kind = file.name.endsWith('.json') ? 'JSON' : 'CSV';
+  // 注意：share()/下載必須在點擊手勢內「同步」發動，所以前面不能有 await
+  const savePromise = writeSavedExport(file);
+  if (!canShareFile(file)) {
+    downloadExport(file);
+    const saved = await savePromise;
+    await markExport();
+    showToast(saved ? `${kind} 已下載並存入備份資料夾` : `此瀏覽器無法分享 ${kind} 檔，已改為下載`);
+    return;
+  }
+  try {
+    await navigator.share({ files: [file], title });
+    const saved = await savePromise;
+    await markExport();
+    showToast(saved ? `${kind} 已分享並存入備份資料夾` : `${kind} 已分享`);
+  } catch (e) {
+    const saved = await savePromise;
+    if (saved) await markExport();
+    if (e && e.name === 'AbortError') return showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享');
+    logError('share', e);
+    // 分享失敗時已不在點擊手勢內，改讓使用者再點一次來下載最穩
+    showToast(`分享失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { downloadExport(file); markExport(); });
+  }
+}
+
+async function writeSavedExport(file) {
+  const dir = await getBackupDirectory(false, false);
+  if (!dir) return false;
+  try {
+    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
+    await writable.write(file); await writable.close();
+    return true;
+  } catch (e) { return false; }
+}
+
+function buildCSV(list) {
+  const esc = v => { v = String(v == null ? '' : v); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const rows = [['ID', '日期', '類型', '類別', '金額', '備註']];
+  [...list].sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.id - b.id)
+    .forEach(r => rows.push([r.id, r.date, r.type === 'income' ? '收入' : '支出', esc(r.category), r.amount, esc(r.note)]));
+  return '\uFEFF' + rows.map(r => r.join(',')).join('\r\n');
+}
+function parseCSVRows(text) {
+  const source = String(text).replace(/^\uFEFF/, '');
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (quoted) {
+      if (char === '"' && source[i + 1] === '"') { cell += '"'; i++; }
+      else if (char === '"') quoted = false;
+      else cell += char;
+    } else if (char === '"' && cell === '') quoted = true;
+    else if (char === ',') { row.push(cell); cell = ''; }
+    else if (char === '\n' || char === '\r') {
+      row.push(cell);
+      if (row.some(value => value.trim())) rows.push(row);
+      row = []; cell = '';
+      if (char === '\r' && source[i + 1] === '\n') i++;
+    } else cell += char;
+  }
+  if (quoted) throw new Error('CSV 引號沒有成對');
+  if (cell.length || row.length) {
+    row.push(cell);
+    if (row.some(value => value.trim())) rows.push(row);
+  }
+  return rows;
+}
+function parseCSVRecords(text) {
+  const rows = parseCSVRows(text);
+  if (!rows.length) throw new Error('CSV 沒有資料');
+  const headers = rows.shift().map(value => value.trim());
+  const idIndex = headers.indexOf('ID');
+  const columns = ['日期', '類型', '類別', '金額', '備註'].map(name => headers.indexOf(name));
+  if (columns.some(index => index < 0)) throw new Error('CSV 欄位格式錯誤');
+  const unescapeCell = value => value.replace(/^'(?=[=+\-@\t\r])/, '');
+  let skipped = 0, missingIds = 0;
+  const imported = rows.map(values => {
+    const [dateIndex, typeIndex, categoryIndex, amountIndex, noteIndex] = columns;
+    const typeValue = (values[typeIndex] || '').trim();
+    const type = typeValue === '收入' || typeValue.toLowerCase() === 'income' ? 'income'
+      : typeValue === '支出' || typeValue.toLowerCase() === 'expense' ? 'expense' : null;
+    const rawId = idIndex < 0 ? '' : (values[idIndex] || '').trim();
+    const numericId = Number(rawId);
+    const id = rawId && Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+    if (!id) missingIds++;
+    return sanitizeRecord({
+      id,
+      date: (values[dateIndex] || '').trim(),
+      type,
+      category: unescapeCell(values[categoryIndex] || ''),
+      amount: (values[amountIndex] || '').trim().replace(/,/g, ''),
+      note: unescapeCell(values[noteIndex] || '')
+    });
+  }).filter(record => {
+    if (record) return true;
+    skipped++;
+    return false;
+  });
+  return { records: imported, skipped, hasIdColumn: idIndex >= 0, missingIds };
+}
+const snapLabel = k => k === 'pre-restore' ? '還原／匯入／清空前的暫存' : k.slice(5);
+async function restoreSnap(snap) {
+  if (!confirm('還原到 ' + snapLabel(snap.key) + ' 的資料？目前的資料會先暫存一份，之後可再還原。')) return;
+  await settingsPut({ key: 'pre-restore', data: records });
+  const list = snap.data.map(sanitizeRecord).filter(Boolean);
+  await dbTx('records', 'readwrite', s => { s.clear(); list.forEach(r => s.put(r)); });
+  records = list; lastId = list.reduce((m, r) => Math.max(m, r.id || 0), 0);
+  $('#backupDlg').close(); refreshAll(); showToast('已還原 ' + list.length + ' 筆資料');
+}
+
+const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+async function buildDiagnostics() {
+  const nav = navigator, L = [];
+  L.push('時間：' + new Date().toLocaleString('zh-TW'));
+  L.push('環境：' + nav.userAgent);
+  L.push('模式：' + ((matchMedia('(display-mode: standalone)').matches || nav.standalone) ? 'PWA（獨立視窗）' : '瀏覽器分頁'));
+  L.push('記錄筆數：' + records.length);
+  try { if (nav.storage && nav.storage.estimate) { const e = await nav.storage.estimate(); L.push(`儲存空間：已用 ${fmtBytes(e.usage || 0)} / 配額 ${fmtBytes(e.quota || 0)}`); } } catch (e) {}
+  try { if (nav.storage && nav.storage.persisted) L.push('持久儲存：' + ((await nav.storage.persisted()) ? '已啟用' : '未啟用')); } catch (e) {}
+  try { if ('caches' in window) L.push('快取版本：' + ((await caches.keys()).join(', ') || '無')); } catch (e) {}
+  L.push('Service Worker：' + ('serviceWorker' in nav ? (nav.serviceWorker.controller ? '運作中' : '未接管') : '不支援'));
+  L.push(`API：share=${typeof nav.share} canShare=${typeof nav.canShare} 資料夾=${!!window.showDirectoryPicker} 多視窗同步=${!!syncCh}`);
+  const log = errorLog();
+  L.push('', `最近錯誤（${log.length}）：`);
+  log.forEach(x => L.push(`${new Date(x.t).toLocaleString('zh-TW')} [${x.kind}] ${x.name ? x.name + '：' : ''}${x.msg}${x.stack ? '\n    ' + x.stack : ''}`));
+  return L.join('\n');
+}
+async function renderDiagnostics() { $('#bkDiagText').textContent = await buildDiagnostics(); }
+
+let syncTimer = null;
+async function reloadFromStorage() {
+  if (!db) return;
+  try {
+    const list = ((await dbTx('records', 'readonly', s => s.getAll())) || []).map(sanitizeRecord).filter(Boolean);
+    records = list;
+    lastId = list.reduce((m, r) => Math.max(m, r.id || 0), lastId);
+    const cc = await settingsGet('customCategories');
+    if (cc) customCategories = { expense: cleanNames(cc.expense), income: cleanNames(cc.income) };
+    if ($('#editDlg').open && editing && !records.some(r => r.id === editing.id)) { $('#editDlg').close(); showToast('這筆紀錄已在其他視窗被刪除'); }
+    refreshAll(); updateBackupUI();
+  } catch (e) { logError('sync', e); }
+}
+
+async function updateBackupUI() {
+  const le = ((await settingsGet('lastExport')) || {}).at || 0;
+  const rec = await settingsGet('dirHandle');
+  backupHandle = rec && rec.handle || null;
+  const reminderSetting = await settingsGet('backupReminderDays');
+  const reminderValue = Number(reminderSetting && reminderSetting.days);
+  const reminderDays = Number.isInteger(reminderValue) && reminderValue >= 1 && reminderValue <= 365 ? reminderValue : 3;
+  $('#backupReminderDays').value = reminderDays;
+  let base = le;
+  if (!base && records.length) { let fu = await settingsGet('firstUse'); if (!fu) { fu = { key: 'firstUse', at: Date.now() }; await settingsPut(fu); } base = fu.at; }
+  const days = base ? Math.floor((Date.now() - base) / 864e5) : 0;
+  const banner = $('#backupBanner'), btn = $('#bannerBtn');
+  const stale = records.length > 0 && days >= reminderDays;
+  banner.classList.toggle('hidden', !(stale || (rec && needPerm)));
+  if (rec && needPerm) { $('#bannerText').textContent = '備份資料夾需要重新授權才能自動備份'; btn.textContent = '重新授權'; btn.onclick = regrant; }
+  else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = jsonBtnText(); btn.onclick = exportJSONToFolder; }
+  $('#bkStatus').textContent = '最近一次外部備份：' + (le ? new Date(le).toLocaleString('zh-TW') : '尚未備份');
+  $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「下載 JSON 備份」或「匯出 CSV 並分享」備份。'
+    : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
+  $('#bkPick').classList.toggle('hidden', !window.showDirectoryPicker);
+  const snaps = ((await dbTx('settings', 'readonly', s => s.getAll())) || []).filter(o => String(o.key).startsWith('snap:') || o.key === 'pre-restore').sort((a, b) => a.key === 'pre-restore' ? -1 : b.key === 'pre-restore' ? 1 : a.key < b.key ? 1 : -1);
+  $('#bkSnaps').replaceChildren(...(snaps.length ? snaps.map(sn => {
+    const row = document.createElement('div'); row.className = 'flex items-center justify-between py-2 text-sm';
+    const t = document.createElement('span'); t.textContent = snapLabel(sn.key) + ' · ' + sn.data.length + ' 筆';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold'; b.textContent = '還原'; b.onclick = () => restoreSnap(sn);
+    row.append(t, b); return row;
+  }) : [Object.assign(document.createElement('div'), { className: 'py-3 text-sm text-slate-400', textContent: '還沒有快照，記下第一筆後就會自動建立。' })]));
+}
+document.addEventListener('DOMContentLoaded', () => {
+  $('#btnBackup').onclick = async () => { await updateBackupUI(); $('#backupDlg').showModal(); };
+  $('#bkSetupPick').onclick = pickFolder;
+  $('#bkSetupLater').onclick = async () => { await settingsPut({ key: 'folderSetupPrompted', shown: true }); $('#backupSetupDlg').close(); };
+  $('#bkSaveReminder').onclick = async () => {
+    const days = Number($('#backupReminderDays').value);
+    if (!Number.isInteger(days) || days < 1 || days > 365) return showToast('請輸入 1 到 365 天');
+    await settingsPut({ key: 'backupReminderDays', days });
+    await updateBackupUI();
+    showToast('備份提醒已設為 ' + days + ' 天');
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && records.length && (bkPending || datedStale)) { clearTimeout(bkTimer); runBackup(true); }
+  });
+  $('#bkDiag').addEventListener('toggle', e => { if (e.target.open) renderDiagnostics(); });
+  $('#bkDiagCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(await buildDiagnostics()); showToast('診斷資訊已複製'); }
+    catch (e) { showToast('無法自動複製，請長按文字手動複製'); }
+  };
+  $('#bkDiagClear').onclick = () => { try { localStorage.removeItem(ERR_LOG_KEY); } catch (e) {} renderDiagnostics(); showToast('錯誤紀錄已清除'); };
+  if (syncCh) syncCh.onmessage = () => { clearTimeout(syncTimer); syncTimer = setTimeout(reloadFromStorage, 300); };
+  $('#bkExportJson').textContent = jsonBtnText();
+  $('#bkExportJson').onclick = exportJSONToFolder;
+  $('#btnClearRecords').onclick = clearAllRecords;
+  $('#bkShare').onclick = exportCSVShare; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
+});
+</script>
+</body>
+</html>
