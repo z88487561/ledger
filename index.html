@@ -212,7 +212,10 @@
     <!-- Quick NLP Input Card -->
     <section class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
       <form id="quickForm" autocomplete="off" class="space-y-2">
-        <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
+        <div class="flex items-center justify-between">
+          <label for="quickInput" class="block text-xs font-medium text-slate-500 dark:text-slate-400">⚡ 智慧快速記帳（支援自然語言）</label>
+          <button type="button" id="btnScanInvoice" class="text-xs font-medium text-teal-600 dark:text-teal-400 hover:underline">📷 掃描發票</button>
+        </div>
         <div class="flex gap-2">
           <input id="quickInput" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="例如：午餐 120、昨天 捷運 30、薪水 +30000" class="flex-1 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
           <button type="submit" class="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl text-sm shadow-md shadow-teal-600/20 transition">記</button>
@@ -439,13 +442,14 @@ expense: [
       '早餐', '午餐', '晚餐', '消夜', '飲料', '點心', '咖啡', '便當', '手搖', '餐', '吃', 
       '火鍋', '燒肉', '麥當勞', '壽司', '臭豆腐', '伙食費', '飯', '麵', '小吃', 
       '鹹酥雞', '珍奶', '手搖飲', '自助餐', '早午餐', '下午茶', '外送', 'ubereats', 
-      'foodpanda', '全家', '7-11', '萊爾富', 'ok超商', '超商', '咖啡廳', '餐廳'
+      'foodpanda', '全家', '7-11', '萊爾富', 'ok超商', '超商', '咖啡廳', '餐廳',
+      '麵包', '三明治', '飯糰', '關東煮', '奶茶', '可樂', '薯條', '豆漿', '拿鐵', '美式'
     ]],
     ['交通', [
       '捷運', '公車', '火車', '高鐵', '台鐵', '計程車', 'uber', '加油', '停車', 
       '悠遊卡', '機車', '客運', '過路費', 'ubike', 'youbike', '租車', 'iRent', 
       '共享機車', 'gogoro', '台鐵', '高鐵', '捷運', '高捷', '北捷', '加油站', 
-      'e-tag', 'etag', '停車費', '拖吊'
+      'e-tag', 'etag', '停車費', '拖吊', '汽油', '柴油', '無鉛'
     ]],
     ['日用品', [
       '日用', '衛生紙', '洗衣', '洗髮', '牙膏', '超市', '全聯', '家樂福', 'costco', 
@@ -664,6 +668,7 @@ function getCategoriesFor(type) {
 
 /* 近 30 天常用備註：只列「目前選的類別」用過的備註，依次數與最近使用排序；輸入文字時變成自動建議 */
 let manualBusy = false;
+let pendingInvoice = null;   // 掃描發票後帶入表單、尚待使用者確認的發票
 function renderNoteChips() {
   const wrap = $('#noteChips'); if (!wrap) return;
   const input = $('#manualNote');
@@ -1541,6 +1546,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     manualBusy = true;
     try { await dbTx('records', 'readwrite', s => s.put(newR)); } finally { manualBusy = false; }
     records.push(newR);
+    if (pendingInvoice) {
+      const pi = pendingInvoice; pendingInvoice = null;
+      if (newR.type === 'expense' && newR.amount === pi.total) rememberInvoice(pi, newR.category).catch(e => logError('invoice', e));
+    }
     $('#manualAmount').value = '';
     $('#manualNote').value = '';
     $('#manualDate').value = todayStr;
@@ -1958,6 +1967,25 @@ document.addEventListener('DOMContentLoaded', () => {
     </fieldset>
   </div>
 </dialog>
+<dialog id="scanDlg" class="w-[92vw] max-w-md rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="font-bold">掃描電子發票</h3>
+      <button type="button" id="scanClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <div style="position:relative;background:#000;border-radius:.75rem;overflow:hidden;aspect-ratio:4/3">
+      <video id="scanVideo" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+      <div aria-hidden="true" style="position:absolute;inset:14%;border:2px solid rgba(255,255,255,.85);border-radius:.75rem;box-shadow:0 0 0 999px rgba(0,0,0,.25)"></div>
+    </div>
+    <p id="scanStatus" role="status" class="text-sm text-slate-500 dark:text-slate-400"></p>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="scanAuto"> 掃描後直接記帳（不需再確認）</label>
+    <div class="grid grid-cols-2 gap-2">
+      <button type="button" id="scanPick" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">從相簿選照片</button>
+      <button type="button" id="scanCancel" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-semibold">取消</button>
+    </div>
+    <input type="file" id="scanFile" accept="image/*" class="hidden">
+  </div>
+</dialog>
 <script>
 let needPerm = false, bkTimer = null, persistAsked = false, backupHandle = null;
 let bkPending = false, datedStale = false, lastDatedDay = '';
@@ -2286,6 +2314,207 @@ async function restoreSnap(snap) {
   $('#backupDlg').close(); refreshAll(); showToast('已還原 ' + list.length + ' 筆資料');
 }
 
+/* ---------- 掃描電子發票（QR code）----------
+   電子發票證明聯左側 QR：前 77 碼為固定欄位（字軌 10、日期 7（民國）、隨機碼 4、銷售額 8（16 進位）、總計 8（16 進位）、買方統編 8、賣方統編 8、加密 24），
+   之後以 ":" 接 營業人自用區、本 QR 品目數、總品目數、編碼(0 Big5／1 UTF-8／2 Base64) 與「品名:數量:單價」；右側 QR 以 ** 開頭，接續其餘品目。 */
+function invoiceItems(f, enc) {
+  const out = [];
+  for (let i = 0; i < f.length; i += 3) {
+    let name = String(f[i] || '').trim();
+    if (!name) continue;
+    if (enc === '0') continue;   // Big5：掃出的字串已被當 UTF-8 解碼成亂碼，略過品名
+    if (enc === '2') { try { name = new TextDecoder().decode(Uint8Array.from(atob(name), c => c.charCodeAt(0))); } catch (e) {} }
+    out.push({ name, qty: Number(f[i + 1]) || 1, price: Number(f[i + 2]) || 0 });
+  }
+  return out;
+}
+function parseInvoiceQR(raw) {
+  const text = String(raw || '').trim();
+  if (/^\*\*/.test(text)) return { kind: 'right', fields: text.replace(/^\*+:?/, '').split(':') };
+  const m = /^([A-Z]{2}\d{8})(\d{7})([0-9A-Za-z]{4})([0-9A-Fa-f]{8})([0-9A-Fa-f]{8})(\d{8})(\d{8})/.exec(text);
+  if (!m || text.length < 77) return null;
+  const y = parseInt(m[2].slice(0, 3), 10) + 1911, mo = +m[2].slice(3, 5), d = +m[2].slice(5, 7);
+  const dt = new Date(y, mo - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d) return null;
+  const total = parseInt(m[5], 16);
+  if (!(total > 0) || total > 1e8) return null;
+  let items = [], enc = '1';
+  const ext = text.slice(77);
+  if (ext.startsWith(':')) {
+    const f = ext.slice(1).split(':');   // [自用區, 本QR品目數, 總品目數, 編碼, 品名, 數量, 單價, ...]
+    enc = f[3] || '1';
+    items = invoiceItems(f.slice(4), enc);
+  }
+  return { kind: 'left', no: m[1], date: ymd(dt), total, seller: m[7], enc, items };
+}
+
+const invoiceLog = async () => {
+  const o = await settingsGet('invoiceLog');
+  return { scanned: Array.isArray(o && o.scanned) ? o.scanned : [], sellers: o && o.sellers && typeof o.sellers === 'object' ? o.sellers : {} };
+};
+async function rememberInvoice(pi, category) {
+  const log = await invoiceLog();
+  if (!log.scanned.includes(pi.no)) log.scanned.push(pi.no);
+  log.scanned = log.scanned.slice(-1000);
+  if (pi.seller && pi.seller !== '00000000') {
+    delete log.sellers[pi.seller]; log.sellers[pi.seller] = category;   // 重新插入＝視為最近使用
+    const keys = Object.keys(log.sellers);
+    keys.slice(0, Math.max(0, keys.length - 500)).forEach(k => delete log.sellers[k]);
+  }
+  await settingsPut({ key: 'invoiceLog', scanned: log.scanned, sellers: log.sellers });
+}
+
+async function applyInvoice(inv) {
+  const log = await invoiceLog();
+  if (log.scanned.includes(inv.no) && !confirm(`發票 ${inv.no} 已經掃描並記過帳了，要再記一次嗎？`)) return;
+  const names = [...new Set(inv.items.map(i => i.name))];
+  const note = names.join('、').slice(0, 100);
+  const catNames = getCategoriesFor('expense');
+  // 類別：同一間店（賣方統編）上次記的類別 > 依品名關鍵字猜 > 保留目前選的類別
+  let cat = log.sellers[inv.seller];
+  if (!catNames.includes(cat)) {
+    cat = null;
+    if (note) {
+      const g = parseQuickInput(note + ' ' + inv.total, { names: { expense: catNames, income: [] }, today: new Date() });
+      if (g.ok && g.type === 'expense' && g.category !== '其他') cat = g.category;
+    }
+  }
+  switchTab('record');
+  const typeBtn = document.querySelector('.type-btn[data-type="expense"]');
+  if (manualType !== 'expense' && typeBtn) typeBtn.click();   // 先切到支出（切換會重設類別），再帶入欄位
+  $('#manualAmount').value = inv.total;
+  $('#manualDate').value = inv.date;
+  $('#manualNote').value = note;
+  if (cat) selectedCategory = cat;
+  pendingInvoice = { no: inv.no, seller: inv.seller, total: inv.total };
+  renderCategoryChips();
+  if ($('#scanAuto').checked) {
+    $('#manualForm').requestSubmit ? $('#manualForm').requestSubmit() : $('#manualForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  } else {
+    $('#manualForm').scrollIntoView({ block: 'center' });
+    showToast(`已帶入發票 ${fmt(inv.total)}${cat ? '（' + cat + '）' : ''}，確認後按「新增記帳紀錄」`, null, null, 6000);
+  }
+}
+
+const scanState = { stream: null, raf: 0, detector: null, canvas: null, left: null, right: null, leftAt: 0, busy: false, last: 0, done: false };
+const setScanStatus = t => { $('#scanStatus').textContent = t; };
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  return new Promise((res, rej) => {
+    const el = document.createElement('script');
+    el.src = 'jsQR.js';
+    el.onload = () => window.jsQR ? res(window.jsQR) : rej(new Error('jsQR 無法使用'));
+    el.onerror = () => rej(new Error('jsQR 載入失敗'));
+    document.head.append(el);
+  });
+}
+async function prepareDecoder() {
+  if (scanState.detector || window.jsQR) return;
+  if ('BarcodeDetector' in window) {
+    try {
+      if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) { scanState.detector = new BarcodeDetector({ formats: ['qr_code'] }); return; }
+    } catch (e) {}
+  }
+  await loadJsQR();
+}
+// deep=true（相簿照片）：原生偵測失敗時再用 jsQR 以多種縮放嘗試
+async function decodeSource(src, w, h, deep) {
+  const out = [];
+  if (scanState.detector) {
+    try { (await scanState.detector.detect(src)).forEach(b => { if (b.rawValue) out.push(b.rawValue); }); } catch (e) {}
+    if (out.length || !deep) return out;
+  }
+  const jsQR = window.jsQR || await loadJsQR();
+  const cv = scanState.canvas || (scanState.canvas = document.createElement('canvas'));
+  for (const W of (deep ? [1600, 1000, 640] : [800])) {
+    const sc = Math.min(1, W / w);
+    cv.width = Math.max(1, Math.round(w * sc)); cv.height = Math.max(1, Math.round(h * sc));
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(src, 0, 0, cv.width, cv.height);
+    const img = ctx.getImageData(0, 0, cv.width, cv.height);
+    const r = jsQR(img.data, img.width, img.height, { inversionAttempts: deep ? 'attemptBoth' : 'dontInvert' });
+    if (r && r.data) { out.push(r.data); break; }
+  }
+  return out;
+}
+function handleScanCodes(codes) {
+  codes.forEach(c => {
+    const r = parseInvoiceQR(c);
+    if (!r) return;
+    if (r.kind === 'left' && !scanState.left) { scanState.left = r; scanState.leftAt = Date.now(); }
+    else if (r.kind === 'right' && !scanState.right) scanState.right = r;
+  });
+  if (scanState.left) setScanStatus(scanState.right ? '讀取完成' : '已讀到發票，正在確認品項…');
+  else if (scanState.right) setScanStatus('已讀到右側 QR，請再對準左側 QR');
+}
+function finishScan() {
+  if (scanState.done || !scanState.left) return;
+  scanState.done = true;
+  const l = scanState.left, r = scanState.right;
+  const items = l.items.slice();
+  if (r) items.push(...invoiceItems(r.fields, l.enc));
+  stopScanner();
+  $('#scanDlg').close();
+  if (navigator.vibrate) navigator.vibrate(60);
+  applyInvoice({ ...l, items }).catch(e => { logError('invoice', e); showToast('發票資料帶入失敗'); });
+}
+function stopScanner() {
+  cancelAnimationFrame(scanState.raf);
+  if (scanState.stream) scanState.stream.getTracks().forEach(t => t.stop());
+  scanState.stream = null;
+  const v = $('#scanVideo'); v.srcObject = null;
+}
+function scanLoop(ts) {
+  if (!scanState.stream) return;
+  scanState.raf = requestAnimationFrame(scanLoop);
+  const v = $('#scanVideo');
+  if (scanState.busy || ts - scanState.last < 160 || v.readyState < 2 || !v.videoWidth) return;
+  scanState.last = ts; scanState.busy = true;
+  decodeSource(v, v.videoWidth, v.videoHeight, false)
+    .then(codes => {
+      handleScanCodes(codes);
+      // 左側讀到後再多等 1 秒看有沒有一起讀到右側 QR（更多品項）
+      if (scanState.left && (scanState.right || Date.now() - scanState.leftAt > 1000)) finishScan();
+    })
+    .catch(e => logError('scan', e))
+    .finally(() => { scanState.busy = false; });
+}
+async function openScanner() {
+  Object.assign(scanState, { left: null, right: null, leftAt: 0, busy: false, last: 0, done: false });
+  $('#scanAuto').checked = localStorage.getItem('ledger_scan_auto') === '1';
+  setScanStatus('正在開啟相機…');
+  $('#scanDlg').showModal();
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error('此環境無法使用相機（需要 HTTPS）'), { name: 'NoCamera' });
+    scanState.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    if (!$('#scanDlg').open) { stopScanner(); return; }
+    const v = $('#scanVideo');
+    v.srcObject = scanState.stream;
+    await v.play();
+    await prepareDecoder();
+    setScanStatus('把發票左側（或右側）的 QR code 放進框內');
+    scanState.raf = requestAnimationFrame(scanLoop);
+  } catch (e) {
+    logError('scan', e);
+    stopScanner();
+    setScanStatus(e && e.name === 'NotAllowedError' ? '沒有相機權限，請到瀏覽器設定允許，或改用「從相簿選照片」' : '無法開啟相機（' + ((e && e.name) || '未知錯誤') + '），可改用「從相簿選照片」');
+  }
+}
+async function scanFromFile(file) {
+  if (!file) return;
+  setScanStatus('辨識照片中…');
+  try {
+    let src;
+    try { src = await createImageBitmap(file); }
+    catch (e) { src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); }); }
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight;
+    await prepareDecoder().catch(() => {});
+    handleScanCodes(await decodeSource(src, w, h, true));
+    if (scanState.left) finishScan();
+    else if (!scanState.right) setScanStatus('照片中找不到電子發票的 QR code，請拍清楚一點，或直接用相機對準左側 QR');
+  } catch (e) { logError('scan', e); setScanStatus('照片辨識失敗，請換一張再試'); }
+}
+
 const fmtBytes = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 async function buildDiagnostics() {
   const nav = navigator, L = [];
@@ -2368,6 +2597,12 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('#bkDiagClear').onclick = () => { try { localStorage.removeItem(ERR_LOG_KEY); } catch (e) {} renderDiagnostics(); showToast('錯誤紀錄已清除'); };
   if (syncCh) syncCh.onmessage = () => { clearTimeout(syncTimer); syncTimer = setTimeout(reloadFromStorage, 300); };
+  $('#btnScanInvoice').onclick = openScanner;
+  $('#scanClose').onclick = $('#scanCancel').onclick = () => $('#scanDlg').close();
+  $('#scanDlg').addEventListener('close', stopScanner);
+  $('#scanPick').onclick = () => $('#scanFile').click();
+  $('#scanFile').onchange = e => { const f = e.target.files[0]; e.target.value = ''; scanFromFile(f); };
+  $('#scanAuto').onchange = e => { try { localStorage.setItem('ledger_scan_auto', e.target.checked ? '1' : '0'); } catch (err) {} };
   $('#bkExportJson').textContent = jsonBtnText();
   $('#bkExportJson').onclick = exportJSONToFolder;
   $('#btnClearRecords').onclick = clearAllRecords;
