@@ -141,6 +141,24 @@
   html[data-color-mode="dark"] [class~="dark:hover:bg-slate-800"]:hover { background-color: #334155 !important; }
   html[data-color-mode="dark"] [class~="dark:hover:bg-slate-700"]:hover { background-color: #475569 !important; }
   
+  /* 收入／支出顏色：預設值依淺色／深色模式不同；使用者自訂時以 --income-user / --expense-user 覆蓋（淺色深色共用） */
+  .c-income { color: var(--income-user, #059669); }
+  .c-expense { color: var(--expense-user, #ea580c); }
+  .bg-c-income { background-color: var(--income-user, #10b981); }
+  .bg-c-expense { background-color: var(--expense-user, #f97316); }
+  .fill-c-income { fill: var(--income-user, #10b981); }
+  .fill-c-expense { fill: var(--expense-user, #f97316); }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-color-mode="light"]) .c-income { color: var(--income-user, #34d399); }
+    html:not([data-color-mode="light"]) .c-expense { color: var(--expense-user, #fb923c); }
+  }
+  html[data-color-mode="dark"] .c-income { color: var(--income-user, #34d399); }
+  html[data-color-mode="dark"] .c-expense { color: var(--expense-user, #fb923c); }
+  .flow-swatch { width: 1.75rem; height: 1.75rem; border-radius: 9999px; border: 2px solid transparent; box-shadow: 0 0 0 1px rgba(148,163,184,.5); flex: none; }
+  .flow-swatch.flow-selected { box-shadow: 0 0 0 2px var(--theme-accent, #0d9488); border-color: #fff; }
+  .flow-color-input { width: 2.25rem; height: 1.75rem; padding: 0; border: 0; background: none; flex: none; }
+  .flow-default { font-size: .75rem; padding: .25rem .6rem; border-radius: .75rem; background: rgba(148,163,184,.18); flex: none; }
+  .flow-default.flow-selected { outline: 2px solid var(--theme-accent, #0d9488); outline-offset: -2px; }
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
@@ -227,7 +245,7 @@
           <input id="manualDate" type="date" required class="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500">
         </div>
 
-        <div id="noteChips" role="group" aria-label="近 30 天常用備註" class="hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4"></div>
+        <div id="noteChips" role="group" aria-label="目前類別近 30 天常用備註" class="hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-4 px-4"></div>
 
         <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl shadow-lg shadow-teal-600/25 transition">新增記帳紀錄</button>
       </form>
@@ -249,11 +267,11 @@
       <div class="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center">
         <div>
           <span class="block text-xs text-slate-400">總收入</span>
-          <b id="summaryInc" class="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">$0</b>
+          <b id="summaryInc" class="text-sm sm:text-base font-bold c-income tabular-nums">$0</b>
         </div>
         <div>
           <span class="block text-xs text-slate-400">總支出</span>
-          <b id="summaryExp" class="text-sm sm:text-base font-bold text-orange-600 dark:text-orange-400 tabular-nums">$0</b>
+          <b id="summaryExp" class="text-sm sm:text-base font-bold c-expense tabular-nums">$0</b>
         </div>
         <div>
           <span class="block text-xs text-slate-400">結餘</span>
@@ -304,11 +322,11 @@
     <div class="grid grid-cols-3 gap-2">
       <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl text-center shadow-sm">
         <span class="text-xs text-slate-400 block">期間收入</span>
-        <b id="analyticsInc" class="text-sm sm:text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">$0</b>
+        <b id="analyticsInc" class="text-sm sm:text-lg font-bold c-income tabular-nums">$0</b>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl text-center shadow-sm">
         <span class="text-xs text-slate-400 block">期間支出</span>
-        <b id="analyticsExp" class="text-sm sm:text-lg font-bold text-orange-600 dark:text-orange-400 tabular-nums">$0</b>
+        <b id="analyticsExp" class="text-sm sm:text-lg font-bold c-expense tabular-nums">$0</b>
       </div>
       <div class="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 rounded-2xl text-center shadow-sm">
         <span class="text-xs text-slate-400 block">淨收支</span>
@@ -336,8 +354,8 @@
       <div class="flex items-center justify-between gap-2">
         <h3 class="font-bold text-sm">趨勢收支對比圖表</h3>
         <div class="flex items-center gap-3 text-xs text-slate-500">
-          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>收入</span>
-          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-orange-500"></span>支出</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-c-income"></span>收入</span>
+          <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-c-expense"></span>支出</span>
         </div>
       </div>
       <div id="trendChartContainer" class="w-full overflow-x-auto py-2">
@@ -644,7 +662,7 @@ function getCategoriesFor(type) {
   return [...map.values()].sort((a, b) => rank(a) - rank(b) || b.score - a.score || a.order - b.order).map(c => c.n);
 }
 
-/* 近 30 天常用備註：同類型、依「目前選的類別」優先，再依次數與最近使用排序；輸入文字時變成自動建議 */
+/* 近 30 天常用備註：只列「目前選的類別」用過的備註，依次數與最近使用排序；輸入文字時變成自動建議 */
 let manualBusy = false;
 function renderNoteChips() {
   const wrap = $('#noteChips'); if (!wrap) return;
@@ -652,29 +670,29 @@ function renderNoteChips() {
   const cut = ymd(new Date(Date.now() - 30 * 864e5)), m = new Map();
   records.forEach(r => {
     const note = String(r.note || '').trim();
-    if (!note || r.type !== manualType || r.date < cut) return;
-    const c = m.get(note) || { note, n: 0, inCat: false, last: '' };
-    c.n++; if (r.category === selectedCategory) c.inCat = true;
+    if (!note || r.type !== manualType || r.category !== selectedCategory || r.date < cut) return;
+    const c = m.get(note) || { note, n: 0, last: '' };
+    c.n++;
     if (r.date > c.last) c.last = r.date;
     m.set(note, c);
   });
   const cur = input.value.trim().toLowerCase();
   const list = [...m.values()]
     .filter(c => !cur || (c.note.toLowerCase().includes(cur) && c.note.toLowerCase() !== cur))
-    .sort((a, b) => (b.inCat - a.inCat) || (b.n - a.n) || (a.last < b.last ? 1 : -1))
+    .sort((a, b) => (b.n - a.n) || (a.last < b.last ? 1 : -1))
     .slice(0, 8);
   wrap.classList.toggle('hidden', !list.length);
   if (!list.length) { wrap.replaceChildren(); return; }
   const label = document.createElement('span');
   label.className = 'flex-none text-xs text-slate-400';
   const hasAmount = parseFloat($('#manualAmount').value) > 0;
-  label.textContent = hasAmount ? '點選即記帳' : (cur ? '符合的備註' : '常用備註');
+  label.textContent = hasAmount ? '點選即記帳' : (cur ? '符合的備註' : selectedCategory + '常用備註');
   wrap.replaceChildren(label, ...list.map(c => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'flex-none px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 active:scale-95 transition';
     b.style.cssText = 'max-width:12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-    b.title = c.note + '（近 30 天用過 ' + c.n + ' 次）';
+    b.title = c.note + '（' + selectedCategory + '，近 30 天用過 ' + c.n + ' 次）';
     b.textContent = c.note;
     b.onclick = () => {
       input.value = c.note.slice(0, 100);
@@ -855,7 +873,7 @@ function renderLedger() {
   $('#summaryExp').textContent = fmt(exp);
   const balEl = $('#summaryBal');
   balEl.textContent = fmt(bal);
-  balEl.className = 'text-sm sm:text-base font-bold tabular-nums ' + (bal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400');
+  balEl.className = 'text-sm sm:text-base font-bold tabular-nums ' + (bal >= 0 ? 'c-income' : 'c-expense');
 
   const listEl = $('#recordList');
 
@@ -898,7 +916,7 @@ function renderLedger() {
     amountDate.style.alignItems = 'flex-end'; amountDate.style.textAlign = 'right';
 
     const amount = document.createElement('div');
-    amount.className = `font-bold text-lg tabular-nums ${r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'}`;
+    amount.className = `font-bold text-lg tabular-nums ${r.type === 'income' ? 'c-income' : 'c-expense'}`;
     amount.textContent = (r.type === 'income' ? '+' : '-') + fmt(r.amount);
 
     const date = document.createElement('div');
@@ -954,7 +972,7 @@ function renderAuxRecordList(container, list, emptyText) {
     const amountDate = document.createElement('div');
     amountDate.className = 'flex min-w-[112px] flex-col items-end text-right';
     amountDate.style.alignItems = 'flex-end'; amountDate.style.textAlign = 'right';
-    const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-lg tabular-nums ' + (r.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400'));
+    const amount = createElementWithText('span', (r.type === 'income' ? '+' : '-') + fmt(r.amount), 'font-bold text-lg tabular-nums ' + (r.type === 'income' ? 'c-income' : 'c-expense'));
     const date = createElementWithText('span', r.date, 'text-sm text-slate-500 dark:text-slate-400');
     amountDate.append(amount, date);
     const remove = document.createElement('button');
@@ -1044,7 +1062,7 @@ function updateAnalytics() {
   $('#analyticsExp').textContent = fmt(exp);
   const netEl = $('#analyticsNet');
   netEl.textContent = fmt(net);
-  netEl.className = 'text-sm sm:text-lg font-bold tabular-nums ' + (net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-orange-600 dark:text-orange-400');
+  netEl.className = 'text-sm sm:text-lg font-bold tabular-nums ' + (net >= 0 ? 'c-income' : 'c-expense');
 
   // Category breakdown calculation
   const catMap = {};
@@ -1239,7 +1257,7 @@ function renderTrendChart(items, range) {
       rectInc.setAttribute('width', '9');
       rectInc.setAttribute('height', incH);
       rectInc.setAttribute('rx', '4');
-      rectInc.setAttribute('class', 'fill-emerald-500');
+      rectInc.setAttribute('class', 'fill-c-income');
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
       title.textContent = labels[d] + ' 收入：' + fmt(data.inc);
       rectInc.append(title);
@@ -1254,7 +1272,7 @@ function renderTrendChart(items, range) {
       rectExp.setAttribute('width', '9');
       rectExp.setAttribute('height', expH);
       rectExp.setAttribute('rx', '4');
-      rectExp.setAttribute('class', 'fill-orange-500');
+      rectExp.setAttribute('class', 'fill-c-expense');
       const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
       title.textContent = labels[d] + ' 支出：' + fmt(data.exp);
       rectExp.append(title);
@@ -1721,6 +1739,46 @@ function shiftMonth(d) {
 }
 const THEME_OPTIONS = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'purple', 'black', 'white'];
 const COLOR_MODES = ['light', 'dark', 'system'];
+/* ---------- 收入／支出顏色（使用者自訂，存 localStorage，並隨 JSON 備份） ---------- */
+const FLOW_KEYS = { income: 'ledger_income_color', expense: 'ledger_expense_color' };
+const FLOW_PALETTE = ['#059669', '#0d9488', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#dc2626', '#ca8a04'];
+const FLOW_NAMES = { '#059669': '綠', '#0d9488': '青', '#2563eb': '藍', '#7c3aed': '紫', '#db2777': '粉紅', '#ea580c': '橘', '#dc2626': '紅', '#ca8a04': '黃' };
+const isHexColor = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+const flowColors = { income: '', expense: '' };
+function applyFlowColor(type, color, persist = false) {
+  const valid = isHexColor(color) ? color.toLowerCase() : '';
+  flowColors[type] = valid;
+  const root = document.documentElement;
+  if (valid) root.style.setProperty('--' + type + '-user', valid); else root.style.removeProperty('--' + type + '-user');
+  if (persist) {
+    try { if (valid) localStorage.setItem(FLOW_KEYS[type], valid); else localStorage.removeItem(FLOW_KEYS[type]); } catch (e) {}
+  }
+  renderFlowColorUI(type);
+}
+function renderFlowColorUI(type) {
+  const box = document.querySelector(`[data-flow-swatches="${type}"]`);
+  if (!box) return;
+  const cur = flowColors[type], label = type === 'income' ? '收入' : '支出';
+  const def = document.createElement('button');
+  def.type = 'button'; def.className = 'flow-default' + (cur ? '' : ' flow-selected'); def.textContent = '預設';
+  def.setAttribute('aria-pressed', String(!cur));
+  def.onclick = () => applyFlowColor(type, '', true);
+  const dots = FLOW_PALETTE.map(c => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'flow-swatch' + (cur === c ? ' flow-selected' : ''); b.style.backgroundColor = c;
+    b.title = b.ariaLabel = label + '顏色：' + FLOW_NAMES[c];
+    b.setAttribute('aria-pressed', String(cur === c));
+    b.onclick = () => applyFlowColor(type, c, true);
+    return b;
+  });
+  const custom = document.createElement('input');
+  custom.type = 'color'; custom.className = 'flow-color-input'; custom.title = '自訂' + label + '顏色'; custom.setAttribute('aria-label', '自訂' + label + '顏色');
+  custom.value = cur || (type === 'income' ? '#059669' : '#ea580c');
+  // 選色過程即時預覽；放開（change）才儲存並重繪，避免選色器被重建而關閉
+  custom.oninput = () => document.documentElement.style.setProperty('--' + type + '-user', custom.value);
+  custom.onchange = () => applyFlowColor(type, custom.value, true);
+  box.replaceChildren(def, ...dots, custom);
+}
 function applyTheme(theme, persist = false) {
   const validTheme = THEME_OPTIONS.includes(theme) ? theme : '';
   if (validTheme) document.documentElement.dataset.theme = validTheme;
@@ -1765,9 +1823,12 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     applyTheme(localStorage.getItem('ledger_theme'));
     applyColorMode(localStorage.getItem('ledger_color_mode'));
+    applyFlowColor('income', localStorage.getItem(FLOW_KEYS.income));
+    applyFlowColor('expense', localStorage.getItem(FLOW_KEYS.expense));
   } catch (e) {
     applyTheme('');
     applyColorMode('system');
+    applyFlowColor('income', ''); applyFlowColor('expense', '');
   }
   $('#btnPreferences').onclick = () => $('#preferencesDlg').showModal();
   $('#preferencesClose').onclick = () => $('#preferencesDlg').close();
@@ -1813,7 +1874,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <h4 class="pt-1 text-sm font-semibold">資料交換</h4>
     <p class="text-xs text-slate-400">JSON 含記錄、預算、自訂類別與外觀設定（自動備份檔格式相同）；CSV 只含記錄，可用 Excel 開啟。</p>
     <div class="grid grid-cols-2 gap-2">
-      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON 到備份資料夾</button>
+      <button type="button" id="bkExportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 JSON</button>
       <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
       <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
       <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
@@ -1883,6 +1944,18 @@ document.addEventListener('DOMContentLoaded', () => {
         <button type="button" data-theme-option="white" aria-label="黑白主題：白" title="黑白主題：白" class="theme-option flex flex-col items-center gap-1 rounded-xl p-2 text-xs"><span class="w-9 h-9 rounded-full border border-slate-200" style="background:#ffffff"></span>白</button>
       </div>
     </fieldset>
+    <fieldset class="space-y-3">
+      <legend class="text-sm font-semibold">收入與支出顏色</legend>
+      <div class="space-y-2" data-flow="income">
+        <div class="flex items-center justify-between text-sm"><span>收入</span><b class="c-income tabular-nums">+$1,234</b></div>
+        <div class="flex flex-wrap items-center gap-2" data-flow-swatches="income"></div>
+      </div>
+      <div class="space-y-2" data-flow="expense">
+        <div class="flex items-center justify-between text-sm"><span>支出</span><b class="c-expense tabular-nums">-$567</b></div>
+        <div class="flex flex-wrap items-center gap-2" data-flow-swatches="expense"></div>
+      </div>
+      <p class="text-xs text-slate-400">自訂顏色在淺色與深色模式共用，請選對比足夠、容易閱讀的顏色；「預設」會依模式自動調整。</p>
+    </fieldset>
   </div>
 </dialog>
 <script>
@@ -1893,7 +1966,7 @@ const settingsPut = o => dbTx('settings', 'readwrite', s => s.put(o));
 
 /* ---------- 統一的備份格式 ----------
    JSON（手動匯出、備份資料夾 latest／日期檔）一律是同一種 v2 結構：
-   { app, version, exportedAt, records: [...], settings: { budgets, customCategories, backupReminderDays, theme, colorMode } }
+   { app, version, exportedAt, records: [...], settings: { budgets, customCategories, backupReminderDays, theme, colorMode, incomeColor, expenseColor } }
    匯入同時相容 v1（純記錄陣列）。CSV 只含記錄；App 內快照也只含記錄。 */
 const BACKUP_APP = 'smart-ledger', BACKUP_VERSION = 2;
 const backupName = (ext, tag) => 'smart-ledger_' + (tag || ymd()) + '.' + ext;
@@ -1911,6 +1984,8 @@ async function collectSettings() {
   try {
     out.theme = localStorage.getItem('ledger_theme') || '';
     out.colorMode = localStorage.getItem('ledger_color_mode') || 'system';
+    out.incomeColor = localStorage.getItem(FLOW_KEYS.income) || '';
+    out.expenseColor = localStorage.getItem(FLOW_KEYS.expense) || '';
   } catch (e) {}
   return out;
 }
@@ -1930,6 +2005,7 @@ function sanitizeSettings(x) {
   if (Number.isInteger(d) && d >= 1 && d <= 365) out.backupReminderDays = d;
   if (typeof x.theme === 'string' && (x.theme === '' || THEME_OPTIONS.includes(x.theme))) out.theme = x.theme;
   if (COLOR_MODES.includes(x.colorMode)) out.colorMode = x.colorMode;
+  ['incomeColor', 'expenseColor'].forEach(k => { if (typeof x[k] === 'string' && (x[k] === '' || isHexColor(x[k]))) out[k] = x[k].toLowerCase(); });
   return Object.keys(out).length ? out : null;
 }
 function parseBackup(text) {
@@ -1948,7 +2024,7 @@ function describeSettings(st) {
   if (st.budgets) a.push(`預算 ${Object.keys(st.budgets).length} 個月`);
   if (st.customCategories) a.push('自訂類別');
   if (st.backupReminderDays) a.push('備份提醒天數');
-  if ('theme' in st || st.colorMode) a.push('外觀');
+  if ('theme' in st || st.colorMode || 'incomeColor' in st || 'expenseColor' in st) a.push('外觀');
   return a;
 }
 async function applySettings(st) {
@@ -1963,6 +2039,8 @@ async function applySettings(st) {
   if (st.backupReminderDays) await settingsPut({ key: 'backupReminderDays', days: st.backupReminderDays });
   if ('theme' in st) applyTheme(st.theme, true);
   if (st.colorMode) applyColorMode(st.colorMode, true);
+  if ('incomeColor' in st) applyFlowColor('income', st.incomeColor, true);
+  if ('expenseColor' in st) applyFlowColor('expense', st.expenseColor, true);
   syncNotify();
   return describeSettings(st);
 }
@@ -2062,7 +2140,7 @@ function canShareFile(file) {
   } catch (e) { return false; }
 }
 
-const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON 到備份資料夾' : '下載 JSON 備份';
+const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
 
 async function exportJSONToFolder() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
