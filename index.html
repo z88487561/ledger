@@ -147,6 +147,9 @@
   html[data-color-mode="dark"] [class~="dark:hover:bg-slate-700"]:hover { background-color: #475569 !important; }
   
   /* 收入／支出顏色：預設值依淺色／深色模式不同；使用者自訂時以 --income-user / --expense-user 覆蓋（淺色深色共用） */
+  /* 版面空白修正：Tailwind 的 space-y 只認 [hidden] 屬性，用 class="hidden" 隱藏的元素仍算「前一個兄弟」，
+     會讓下一個元素多出 1rem 上邊距。主區塊第一個元素（備份提醒）平常是隱藏的，所以分頁列上方多了一段空白。 */
+  #appMain > .hidden:first-child + * { margin-top: 0; }
   .c-income { color: var(--income-user, #059669); }
   .c-expense { color: var(--expense-user, #ea580c); }
   .bg-c-income { background-color: var(--income-user, #10b981); }
@@ -354,6 +357,7 @@
       <div id="chartContainer" class="py-2 flex flex-col items-center justify-center min-h-[180px]">
         <!-- SVG Donut or Bars injected via JS -->
       </div>
+      <p class="text-xs text-slate-400 text-center">點選圖表或下方類別，可查看該期間的明細</p>
       <div id="categoryBreakdownList" class="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800"></div>
     </section>
 
@@ -630,6 +634,10 @@ async function mergeRecordsIn(list) {
 }
 
 /* ---------- UI Controller & Renderers ---------- */
+// 記錄每個 dialog 開啟的先後，讓提示（toast）顯示在最上層（最後開啟）的 dialog 裡
+const nativeShowModal = HTMLDialogElement.prototype.showModal;
+HTMLDialogElement.prototype.showModal = function () { this.openedAt = performance.now(); return nativeShowModal.call(this); };
+
 function hideToast() {
   $('#toast').classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
 }
@@ -637,7 +645,8 @@ function showToast(msg, actionText, actionFn, ms) {
   const t = $('#toast'), msgEl = $('#toastMsg'), actEl = $('#toastAction');
   // 開啟中的 modal <dialog> 位於 top layer，z-index 蓋不過它；
   // 把提示移進該 dialog 內，就能顯示在資料管理等視窗之上
-  const host = document.querySelector('dialog[open]') || document.body;
+  const topDialog = [...document.querySelectorAll('dialog[open]')].sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0))[0];
+  const host = topDialog || document.body;
   if (t.parentElement !== host) host.append(t);
   msgEl.textContent = msg;
   const hasAction = !!(actionText && actionFn);
@@ -1040,19 +1049,20 @@ async function deleteRecord(r) {
 }
 
 /* ---------- Analytics & Charts Renderer ---------- */
-function periodBounds(range) {
+/** 回傳 [起日, 迄日, 顯示文字]；offset 為往前推幾期（0＝本期），預設跟著數據圖表目前的期間 */
+function periodBounds(range, offset = analyticsOffset) {
   const n = new Date();
   if (range === 'week') {
     const d = n.getDay() || 7;
-    const a = new Date(n.getFullYear(), n.getMonth(), n.getDate() - d + 1 - 7 * analyticsOffset);
+    const a = new Date(n.getFullYear(), n.getMonth(), n.getDate() - d + 1 - 7 * offset);
     const b = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6);
     return [ymd(a), ymd(b), ymd(a).slice(5) + ' ~ ' + ymd(b).slice(5)];
   }
   if (range === 'month') {
-    const a = new Date(n.getFullYear(), n.getMonth() - analyticsOffset, 1), k = ymd(a).slice(0, 7);
+    const a = new Date(n.getFullYear(), n.getMonth() - offset, 1), k = ymd(a).slice(0, 7);
     return [k + '-01', k + '-31', a.getFullYear() + ' 年 ' + (a.getMonth() + 1) + ' 月'];
   }
-  if (range === 'year') { const y = n.getFullYear() - analyticsOffset; return [y + '-01-01', y + '-12-31', y + ' 年']; }
+  if (range === 'year') { const y = n.getFullYear() - offset; return [y + '-01-01', y + '-12-31', y + ' 年']; }
   return ['0000-00-00', '9999-99-99', '全部期間'];
 }
 function getFilteredRecordsForRange(range) {
@@ -1103,6 +1113,11 @@ function updateAnalytics() {
 
       const row = document.createElement('div');
       row.className = 'space-y-1 text-xs';
+      row.setAttribute('role', 'button'); row.tabIndex = 0;
+      row.style.cursor = 'pointer';
+      row.setAttribute('aria-label', '查看 ' + cat + ' 的記帳明細');
+      row.onclick = () => openCatDetail(cat);
+      row.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCatDetail(cat); } };
 
       const header = document.createElement('div');
       header.className = 'flex justify-between font-medium';
@@ -1141,6 +1156,36 @@ function updateAnalytics() {
   const detailItems = sortRecords(items, $('#analyticsSort').value);
   $('#analyticsRecordCount').textContent = detailItems.length + ' 筆';
   renderAuxRecordList($('#analyticsRecordList'), detailItems, '本期尚無記帳資料');
+  if ($('#catDetailDlg').open) renderCatDetail();   // 在明細裡編輯／刪除紀錄後，清單同步更新
+}
+
+/* ---------- 類別明細：從「類別佔比」點選類別，查看該期間的記帳清單，並可切換上下期 ---------- */
+const catDetail = { cat: '', type: 'expense', range: 'month', offset: 0 };
+function openCatDetail(cat) {
+  Object.assign(catDetail, { cat, type: chartMode, range: analyticsRange, offset: analyticsOffset });
+  renderCatDetail();
+  $('#catDetailDlg').showModal();
+}
+function renderCatDetail() {
+  const { cat, type, range, offset } = catDetail;
+  const [from, to, label] = periodBounds(range, offset);
+  const inPeriod = records.filter(r => r.type === type && r.date >= from && r.date <= to);
+  const list = sortRecords(inPeriod.filter(r => r.category === cat), 'date-desc');
+  const sum = round2(list.reduce((t, r) => t + r.amount, 0));
+  const total = inPeriod.reduce((t, r) => t + r.amount, 0);
+  const typeText = type === 'income' ? '收入' : '支出';
+  $('#catDetailTitle').textContent = iconFor(type, cat) + ' ' + cat + '（' + typeText + '）';
+  $('#catDetailLabel').textContent = label;
+  $('#catDetailNav').classList.toggle('hidden', range === 'all');
+  // 沒有更早的紀錄就不能再往前；本期之後（未來）也不提供
+  const earliest = records.reduce((m, r) => r.date < m ? r.date : m, '9999-99-99');
+  const noPrev = from <= earliest, noNext = offset === 0;
+  $('#catDetailPrev').disabled = noPrev; $('#catDetailPrev').classList.toggle('opacity-30', noPrev);
+  $('#catDetailNext').disabled = noNext; $('#catDetailNext').classList.toggle('opacity-30', noNext);
+  $('#catDetailSummary').textContent = list.length
+    ? `${list.length} 筆・合計 ${fmt(sum)}・佔該期${typeText} ${total > 0 ? (sum / total * 100).toFixed(1) : '0.0'}%`
+    : '';
+  renderAuxRecordList($('#catDetailList'), list, `這個期間沒有「${cat}」的紀錄`);
 }
 
 function createElementWithText(tag, text, className) {
@@ -1195,6 +1240,7 @@ function createDonutSVG(sortedCats, total, colors) {
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
     title.textContent = `${cat}: ${fmt(amt)} (${(pct * 100).toFixed(1)}%)`;
     circle.append(title);
+    circle.addEventListener('click', () => openCatDetail(cat));
     svg.append(circle);
   });
 
@@ -1859,6 +1905,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $$('[data-mode-option]').forEach(btn => btn.addEventListener('click', () => applyColorMode(btn.dataset.modeOption, true)));
   $('#monthPrev').onclick = () => shiftMonth(-1);
   $('#monthNext').onclick = () => shiftMonth(1);
+  $('#catDetailClose').onclick = () => $('#catDetailDlg').close();
+  $('#catDetailPrev').onclick = () => { catDetail.offset++; renderCatDetail(); };
+  $('#catDetailNext').onclick = () => { if (catDetail.offset > 0) { catDetail.offset--; renderCatDetail(); } };
   $('#periodPrev').onclick = () => { analyticsOffset++; updateAnalytics(); };
   $('#periodNext').onclick = () => { if (analyticsOffset > 0) { analyticsOffset--; updateAnalytics(); } };
   $$('.range-btn').forEach(b => b.addEventListener('click', () => { analyticsOffset = 0; updateAnalytics(); }));
@@ -2014,6 +2063,21 @@ document.addEventListener('DOMContentLoaded', () => {
     <div>
       <button type="button" id="scanCancel" class="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sm font-semibold transition-colors">關閉</button>
     </div>
+  </div>
+</dialog>
+<dialog id="catDetailDlg" class="w-[94vw] max-w-lg rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+  <div class="p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 id="catDetailTitle" class="font-bold"></h3>
+      <button type="button" id="catDetailClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
+    </div>
+    <div id="catDetailNav" class="flex items-center justify-between text-sm">
+      <button type="button" id="catDetailPrev" aria-label="上一期" class="px-5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-base">‹</button>
+      <span id="catDetailLabel" class="font-semibold"></span>
+      <button type="button" id="catDetailNext" aria-label="下一期" class="px-5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-base">›</button>
+    </div>
+    <p id="catDetailSummary" class="text-sm text-slate-500 dark:text-slate-400 text-center"></p>
+    <div id="catDetailList" class="divide-y divide-slate-100 dark:divide-slate-800" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </dialog>
 <script>
