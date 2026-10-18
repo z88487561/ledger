@@ -2383,7 +2383,25 @@ function decodeQRText(raw, preferredEnc) {
   return String(raw.data || asciiHead).trim();
 }
 
-/** 解析「品名:數量:單價」三個一組的欄位；編碼為 2 時品名是 Base64。含亂碼（U+FFFD）的品名直接略過，避免備註出現亂碼 */
+/** 品名是否「看得懂」。以下情況視為無意義，備註寧可留空：
+    只有數字／符號、幾乎全是數字（條碼、商品編號）、含亂碼（U+FFFD、私用區、控制字元）、
+    大量罕見難字（編碼解錯的典型現象）、或一堆 Â／Ã 之類的字元（UTF-8 被當成 Latin-1 解讀）。 */
+function isReadableName(name) {
+  const s = String(name || '').replace(/\s+/g, '');
+  if (!s) return false;
+  if (/[\uFFFD\uE000-\uF8FF\u0000-\u001F\u007F-\u009F]/.test(s)) return false;
+  if (!/\p{L}/u.test(s)) return false;                                    // 沒有任何文字
+  const len = [...s].length;
+  const digits = (s.match(/\p{N}/gu) || []).length;
+  if (len >= 6 && digits / len >= 0.8) return false;                      // 幾乎全是數字
+  const rare = (s.match(/[\u2E80-\u2FDF\u3400-\u4DBF\uF900-\uFAFF\u{20000}-\u{3134F}]/gu) || []).length;
+  if (rare / len >= 0.25 && (rare >= 2 || len <= 3)) return false;       // 大量難字（擴充區漢字、部首、相容漢字）
+  const latin1 = (s.match(/[\u00C0-\u00FF]/g) || []).length;
+  if (latin1 >= 2 && latin1 / len >= 0.3) return false;                  // 疑似 Latin-1 誤解讀
+  return true;
+}
+
+/** 解析「品名:數量:單價」三個一組的欄位；編碼為 2 時品名是 Base64。看不懂的品名（見 isReadableName）直接略過 */
 function invoiceItems(fields, enc) {
   const out = [];
   for (let i = 0; i < fields.length; i += 3) {
@@ -2392,7 +2410,7 @@ function invoiceItems(fields, enc) {
     if (enc === '2') {
       try { name = new TextDecoder('utf-8').decode(Uint8Array.from(atob(name), c => c.charCodeAt(0))).trim(); } catch (e) {}
     }
-    if (!name || name.includes('\uFFFD')) continue;
+    if (!isReadableName(name)) continue;
     out.push({ name, qty: parseFloat(fields[i + 1]) || 1, price: parseFloat(fields[i + 2]) || 0 });
   }
   return out;
@@ -2450,6 +2468,20 @@ async function rememberInvoice(pi, category, recordId) {
   await settingsPut({ key: 'invoiceLog', invoices: log.invoices, sellers: log.sellers });
 }
 
+/** 逐一品項套用快速記帳的關鍵字分類，依「數量 × 單價」加總，回傳金額最大的類別；沒有任何品項命中時回傳 null。
+    這樣一張發票同時有汽油與咖啡時，會歸在金額較大的交通，而不是關鍵字表中排在前面的餐飲。 */
+function guessInvoiceCategory(items, catNames) {
+  const sums = new Map();
+  items.forEach(it => {
+    const g = parseQuickInput(it.name + ' 1', { names: { expense: catNames, income: [] }, today: new Date() });
+    if (!g.ok || g.type !== 'expense' || g.category === '其他' || g.category === INVOICE_CATEGORY) return;
+    sums.set(g.category, (sums.get(g.category) || 0) + (it.qty * it.price || 1));
+  });
+  let best = null, bestSum = 0;
+  sums.forEach((sum, cat) => { if (sum > bestSum) { best = cat; bestSum = sum; } });
+  return best;
+}
+
 /** 把掃描到的發票帶入手動記帳表單；勾選「掃描後直接記帳」時直接送出 */
 async function applyInvoice(inv) {
   const log = await invoiceLog();
@@ -2457,14 +2489,12 @@ async function applyInvoice(inv) {
 
   const note = [...new Set(inv.items.map(i => i.name))].join('、').slice(0, 100);
   const catNames = getCategoriesFor('expense');
-  // 類別優先順序：同一間店上次記的類別 > 依品名關鍵字猜 > 都沒有就用「發票」類別
-  let cat = sellerCategory(log, inv.seller);
-  if (!catNames.includes(cat) || cat === '其他' || cat === INVOICE_CATEGORY) {
-    cat = null;
-    if (note) {
-      const g = parseQuickInput(note + ' ' + inv.total, { names: { expense: catNames, income: [] }, today: new Date() });
-      if (g.ok && g.type === 'expense' && g.category !== '其他' && g.category !== INVOICE_CATEGORY) cat = g.category;
-    }
+  // 類別優先順序：依品名關鍵字（多品項以金額最大的類別為準）> 同一間店上次記的類別 > 「發票」類別
+  // 品名比店家記憶可靠：加油站、便利商店、量販店什麼都賣，只憑店家會把「九二無鉛」記成上次買的飲料
+  let cat = guessInvoiceCategory(inv.items, catNames);
+  if (!cat) {
+    const remembered = sellerCategory(log, inv.seller);
+    if (catNames.includes(remembered) && remembered !== '其他' && remembered !== INVOICE_CATEGORY) cat = remembered;
   }
   if (!cat) cat = catNames.includes(INVOICE_CATEGORY) ? INVOICE_CATEGORY : (catNames[0] || '其他');
 
