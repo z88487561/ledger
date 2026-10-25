@@ -268,11 +268,18 @@
         <div class="flex items-center gap-1"><button type="button" id="monthPrev" aria-label="上個月" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-base">‹</button><input id="filterMonth" type="month" class="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-teal-500"><button type="button" id="monthNext" aria-label="下個月" class="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-base">›</button></div>
         <button type="button" id="btnShowAll" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium rounded-xl transition">顯示全部</button>
       </div>
-      <label class="flex items-center justify-between gap-3 text-xs text-slate-500">排序
-        <select id="ledgerSort" class="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100">
-          <option value="date-desc">日期：新到舊</option><option value="date-asc">日期：舊到新</option><option value="amount-desc">金額：高到低</option><option value="amount-asc">金額：低到高</option>
-        </select>
-      </label>
+      <div class="grid grid-cols-2 gap-2 text-xs text-slate-500">
+        <label class="flex flex-col gap-1">類別
+          <select id="ledgerCategoryFilter" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="">全部類別</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">排序
+          <select id="ledgerSort" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="date-desc">日期：新到舊</option><option value="date-asc">日期：舊到新</option><option value="amount-desc">金額：高到低</option><option value="amount-asc">金額：低到高</option>
+          </select>
+        </label>
+      </div>
 
       <!-- Summary Cards -->
       <div class="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-center">
@@ -935,11 +942,60 @@ async function deleteCustomCategory(type, name) {
 }
 
 /* Render Main Ledger View */
+function updateLedgerCategoryFilter() {
+  const el = $('#ledgerCategoryFilter');
+  if (!el) return;
+  const currentVal = el.value;
+  const expCats = getCategoriesFor('expense');
+  const incCats = getCategoriesFor('income');
+  const key = expCats.join(',') + '|' + incCats.join(',');
+  if (el.dataset.lastKey === key) return;
+  el.dataset.lastKey = key;
+  el.replaceChildren();
+
+  const allOpt = document.createElement('option');
+  allOpt.value = '';
+  allOpt.textContent = '全部類別';
+  el.appendChild(allOpt);
+
+  if (expCats.length) {
+    const group = document.createElement('optgroup');
+    group.label = '支出類別';
+    expCats.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = iconFor('expense', cat) + ' ' + cat;
+      group.appendChild(opt);
+    });
+    el.appendChild(group);
+  }
+
+  if (incCats.length) {
+    const group = document.createElement('optgroup');
+    group.label = '收入類別';
+    incCats.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = iconFor('income', cat) + ' ' + cat;
+      group.appendChild(opt);
+    });
+    el.appendChild(group);
+  }
+
+  if (currentVal && [...el.options].some(o => o.value === currentVal)) {
+    el.value = currentVal;
+  } else {
+    el.value = '';
+  }
+}
+
 function renderLedger() {
   renderNoteChips();
   renderFrequent();
+  updateLedgerCategoryFilter();
   const filterMonth = $('#filterMonth').value;
-  const filtered = sortRecords(records.filter(r => !filterMonth || r.date.startsWith(filterMonth)), $('#ledgerSort').value);
+  const filterCat = $('#ledgerCategoryFilter') ? $('#ledgerCategoryFilter').value : '';
+  const filtered = sortRecords(records.filter(r => (!filterMonth || r.date.startsWith(filterMonth)) && (!filterCat || r.category === filterCat)), $('#ledgerSort').value);
 
   let inc = 0, exp = 0;
   filtered.forEach(r => r.type === 'income' ? inc += r.amount : exp += r.amount);
@@ -957,7 +1013,13 @@ function renderLedger() {
   if (!filtered.length) {
     const empty = document.createElement('div');
     empty.className = 'text-center py-12 text-slate-400 text-sm space-y-1';
-    empty.append('尚無記帳紀錄，試試上方智慧輸入吧！');
+    let msg = '尚無記帳紀錄，試試上方智慧輸入吧！';
+    if (filterCat) {
+      msg = filterMonth ? `${filterMonth} 沒有「${filterCat}」的記帳紀錄` : `沒有「${filterCat}」的記帳紀錄`;
+    } else if (!filterMonth) {
+      msg = '目前沒有任何記帳紀錄';
+    }
+    empty.append(msg);
     listEl.replaceChildren(empty);
     renderRecordSearch();
     return;
@@ -1220,17 +1282,19 @@ function updateAnalytics() {
 }
 
 /* ---------- 類別明細：從「類別佔比」點選類別，查看該期間的記帳清單，並可切換上下期 ---------- */
-const catDetail = { cat: '', type: 'expense', range: 'month', offset: 0 };
+const catDetail = { cat: '', type: 'expense', range: 'month', offset: 0, sort: 'date-desc' };
 function openCatDetail(cat) {
   Object.assign(catDetail, { cat, type: chartMode, range: analyticsRange, offset: analyticsOffset });
+  if ($('#catDetailSort')) catDetail.sort = $('#catDetailSort').value || 'date-desc';
   renderCatDetail();
   $('#catDetailDlg').showModal();
 }
 function renderCatDetail() {
   const { cat, type, range, offset } = catDetail;
+  const sortMode = $('#catDetailSort') ? $('#catDetailSort').value : (catDetail.sort || 'date-desc');
   const [from, to, label] = periodBounds(range, offset);
   const inPeriod = records.filter(r => r.type === type && r.date >= from && r.date <= to);
-  const list = sortRecords(inPeriod.filter(r => r.category === cat), 'date-desc');
+  const list = sortRecords(inPeriod.filter(r => r.category === cat), sortMode);
   const sum = round2(list.reduce((t, r) => t + r.amount, 0));
   const total = inPeriod.reduce((t, r) => t + r.amount, 0);
   const typeText = type === 'income' ? '收入' : '支出';
@@ -1691,6 +1755,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Filter List Events
   $('#filterMonth').addEventListener('change', renderLedger);
   $('#ledgerSort').addEventListener('change', renderLedger);
+  $('#ledgerCategoryFilter').addEventListener('change', renderLedger);
   $('#recordSearch').addEventListener('input', renderRecordSearch);
   $('#searchSort').addEventListener('change', renderRecordSearch);
   $('#analyticsSort').addEventListener('change', updateAnalytics);
@@ -1992,6 +2057,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#catDetailClose').onclick = () => $('#catDetailDlg').close();
   $('#catDetailPrev').onclick = () => { catDetail.offset++; renderCatDetail(); };
   $('#catDetailNext').onclick = () => { if (catDetail.offset > 0) { catDetail.offset--; renderCatDetail(); } };
+  $('#catDetailSort').onchange = renderCatDetail;
   $('#periodPrev').onclick = () => { analyticsOffset++; updateAnalytics(); };
   $('#periodNext').onclick = () => { if (analyticsOffset > 0) { analyticsOffset--; updateAnalytics(); } };
   $$('.range-btn').forEach(b => b.addEventListener('click', () => { analyticsOffset = 0; updateAnalytics(); }));
@@ -2154,7 +2220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 </dialog>
-<dialog id="catDetailDlg" class="w-[94vw] max-w-lg rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50">
+<dialog id="catDetailDlg" class="max-w-2xl rounded-2xl p-0 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 shadow-2xl mt-[6vh] mb-auto mx-auto backdrop:bg-black/50" style="width: min(calc(100vw - 2rem), 42rem); max-width: 42rem;">
   <div class="p-4 space-y-3">
     <div class="flex items-center justify-between">
       <h3 id="catDetailTitle" class="font-bold"></h3>
@@ -2165,7 +2231,17 @@ document.addEventListener('DOMContentLoaded', () => {
       <span id="catDetailLabel" class="font-semibold"></span>
       <button type="button" id="catDetailNext" aria-label="下一期" class="px-5 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-base">›</button>
     </div>
-    <p id="catDetailSummary" class="text-sm text-slate-500 dark:text-slate-400 text-center"></p>
+    <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
+      <p id="catDetailSummary" class="text-slate-500 dark:text-slate-400 font-medium truncate flex-1"></p>
+      <label class="flex items-center gap-1.5 text-slate-500 flex-none">排序
+        <select id="catDetailSort" class="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500">
+          <option value="date-desc">日期：新到舊</option>
+          <option value="date-asc">日期：舊到新</option>
+          <option value="amount-desc">金額：高到低</option>
+          <option value="amount-asc">金額：低到高</option>
+        </select>
+      </label>
+    </div>
     <div id="catDetailList" class="divide-y divide-slate-100 dark:divide-slate-800" style="max-height:60vh;overflow-y:auto"></div>
   </div>
 </dialog>
