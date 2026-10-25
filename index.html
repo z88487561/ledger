@@ -507,6 +507,7 @@ expense: [
 };
 
 const round2 = n => Math.round(n * 100) / 100;
+const CATEGORY_MAX = 8, NOTE_MAX = 100;
 const ymd = (d = new Date()) => { 
   const p = n => String(n).padStart(2, '0'); 
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); 
@@ -536,7 +537,7 @@ function parseQuickInput(input, opt) {
   let category = opt.names[type].filter(n => n !== '其他').sort((a, b) => b.length - a.length).find(hit);
   if (!category) { const k = KEYWORDS[type].find(([, ks]) => ks.some(hit)); category = k ? k[0] : '其他'; }
   const t = opt.today;
-  return { ok: true, type, category, amount: round2(amount), note: text === category ? '' : text, date: ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset)) };
+  return { ok: true, type, category, amount: round2(amount), note: text === category ? '' : text.slice(0, NOTE_MAX), date: ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() + offset)) };
 }
 
 /* ---------- Data Store & State ---------- */
@@ -577,7 +578,7 @@ window.addEventListener('unhandledrejection', ev => logError('promise', ev.reaso
 /* ---------- 多視窗同步：任一視窗寫入後通知其他視窗重新讀取 ---------- */
 const syncCh = 'BroadcastChannel' in window ? new BroadcastChannel('smart_ledger_sync') : null;
 const syncNotify = () => { try { if (syncCh) syncCh.postMessage('changed'); } catch (e) {} };
-const cleanNames = a => Array.isArray(a) ? [...new Set(a.filter(n => typeof n === 'string').map(n => n.trim().slice(0, 20)).filter(Boolean))] : [];
+const cleanNames = a => Array.isArray(a) ? [...new Set(a.filter(n => typeof n === 'string').map(n => n.trim().slice(0, CATEGORY_MAX)).filter(Boolean))] : [];
 
 const $ = s => document.querySelector(s);
 const $$ = s => document.querySelectorAll(s);
@@ -601,11 +602,18 @@ const openDB = () => new Promise((res, rej) => {
 });
 
 const dbTx = (storeName, mode, fn) => new Promise((res, rej) => {
-  if (!db) return res(null);
+  if (!db) {
+    if (mode === 'readwrite') return rej(new Error('資料庫未連線或無法開啟'));
+    return res(null);
+  }
   if (storeName === 'records' && mode === 'readwrite' && typeof scheduleBackup === 'function') scheduleBackup();
-  const t = db.transaction(storeName, mode), out = fn(t.objectStore(storeName));
-  t.oncomplete = () => { if (storeName === 'records' && mode === 'readwrite') syncNotify(); res(out && out.result); };
-  t.onerror = t.onabort = () => rej(t.error);
+  try {
+    const t = db.transaction(storeName, mode), out = fn(t.objectStore(storeName));
+    t.oncomplete = () => { if (storeName === 'records' && mode === 'readwrite') syncNotify(); res(out && out.result); };
+    t.onerror = t.onabort = () => rej(t.error || new Error('資料庫交易失敗'));
+  } catch (e) {
+    rej(e);
+  }
 });
 
 const nextId = () => (lastId = Math.max(Date.now(), lastId + 1));
@@ -621,8 +629,8 @@ function sanitizeRecord(x) {
     date, 
     type, 
     amount: round2(amount),
-    category: String(x.category == null ? '' : x.category).trim().slice(0, 20) || '其他',
-    note: String(x.note == null ? '' : x.note).trim().slice(0, 200) 
+    category: String(x.category == null ? '' : x.category).trim().slice(0, CATEGORY_MAX) || '其他',
+    note: String(x.note == null ? '' : x.note).trim().slice(0, NOTE_MAX) 
   };
 }
 
@@ -631,6 +639,54 @@ async function mergeRecordsIn(list) {
   list.forEach(r => { if (r.id == null) r.id = nextId(); lastId = Math.max(lastId, r.id); byId.set(r.id, r); });
   await dbTx('records', 'readwrite', s => { list.forEach(r => s.put(r)); });
   records = [...byId.values()];
+}
+
+let recordWriteBusy = false;
+let lastAutoDate = '';
+function syncTodayFields() {
+  const t = ymd();
+  const dateEl = $('#manualDate'), monthEl = $('#filterMonth'), fromEl = $('#recordSearchFrom'), toEl = $('#recordSearchTo');
+  if (!dateEl) return t;
+  if (!lastAutoDate) {
+    dateEl.value = t;
+    monthEl.value = t.slice(0, 7);
+    fromEl.value = t.slice(0, 4) + '-01-01';
+    toEl.value = t;
+    lastAutoDate = t;
+    return t;
+  }
+  if (t === lastAutoDate) return t;
+  const prev = lastAutoDate, prevMonth = prev.slice(0, 7), prevYearStart = prev.slice(0, 4) + '-01-01';
+  if (!dateEl.value || dateEl.value === prev) dateEl.value = t;
+  if (monthEl.value === prevMonth) monthEl.value = t.slice(0, 7);
+  if (fromEl.value === prevYearStart) fromEl.value = t.slice(0, 4) + '-01-01';
+  if (!toEl.value || toEl.value === prev) toEl.value = t;
+  lastAutoDate = t;
+  return t;
+}
+async function persistNewRecord(partial) {
+  if (recordWriteBusy) return null;
+  recordWriteBusy = true;
+  try {
+    if (!db) throw new Error('資料庫未連線或無法開啟');
+    const newR = {
+      id: nextId(),
+      date: partial.date || ymd(),
+      type: partial.type,
+      category: String(partial.category == null ? '' : partial.category).trim().slice(0, CATEGORY_MAX) || '其他',
+      amount: partial.amount,
+      note: String(partial.note == null ? '' : partial.note).trim().slice(0, NOTE_MAX)
+    };
+    await dbTx('records', 'readwrite', s => s.put(newR));
+    records.push(newR);
+    return newR;
+  } catch (e) {
+    logError('save', e);
+    showToast(!db ? '資料庫無法開啟，記帳未儲存！請檢查瀏覽器儲存權限或無痕模式' : '儲存失敗：資料庫寫入失敗，請檢查儲存空間');
+    return null;
+  } finally {
+    recordWriteBusy = false;
+  }
 }
 
 /* ---------- UI Controller & Renderers ---------- */
@@ -682,7 +738,6 @@ function getCategoriesFor(type) {
 }
 
 /* 近 30 天常用備註：只列「目前選的類別」用過的備註，依次數與最近使用排序；輸入文字時變成自動建議 */
-let manualBusy = false;
 let pendingInvoice = null;   // 掃描發票後帶入表單、尚待使用者確認的發票
 function renderNoteChips() {
   const wrap = $('#noteChips'); if (!wrap) return;
@@ -717,10 +772,10 @@ function renderNoteChips() {
     b.title = c.note + '（' + selectedCategory + '，近 30 天用過 ' + c.n + ' 次）';
     b.textContent = c.note;
     b.onclick = () => {
-      input.value = c.note.slice(0, 100);
+      input.value = c.note.slice(0, NOTE_MAX);
       if (parseFloat($('#manualAmount').value) > 0) {
         // 已填金額：點備註 = 以目前選的類別直接新增（等同按「新增記帳紀錄」，新增後可復原）
-        if (manualBusy) return;
+        if (recordWriteBusy) return;
         const form = $('#manualForm');
         if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
       } else {
@@ -752,7 +807,7 @@ function renderCategoryChips() {
       addBtn.type = 'button';
       addBtn.className = 'flex items-center gap-1 px-3.5 py-2 rounded-xl text-sm font-medium border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 hover:text-teal-600 transition';
       addBtn.onclick = () => {
-        const name = (prompt('請輸入新類別名稱（最多 8 個字）') || '').trim().slice(0, 8);
+        const name = (prompt('請輸入新類別名稱（最多 ' + CATEGORY_MAX + ' 個字）') || '').trim().slice(0, CATEGORY_MAX);
         if (!name) return;
         addCustomCategory(manualType, name);
       };
@@ -771,7 +826,7 @@ async function saveCustomCategories(type, names) {
 }
 
 async function addCustomCategory(type, name) {
-  const clean = name.trim().slice(0, 20);
+  const clean = name.trim().slice(0, CATEGORY_MAX);
   if (!clean) return;
   if (getCategoriesFor(type).includes(clean)) return showToast('這個類別已經存在');
   try {
@@ -804,7 +859,7 @@ function renderCategoryManager() {
     actions.className = 'flex flex-none gap-2';
     if (categoryPendingDelete === name) {
       const affectedCount = records.filter(r => r.type === type && r.category === name).length;
-      const warning = createElementWithText('span', affectedCount ? `${affectedCount} 筆紀錄將改為「其他」` : '確定刪除這個類別？', 'min-w-0 flex-1 text-xs text-orange-600');
+      const warning = createElementWithText('span', affectedCount ? `${affectedCount} 筆將強制轉為「其他」` : '確定刪除這個類別？', 'min-w-0 flex-1 text-xs text-orange-600');
       const confirmDelete = document.createElement('button');
       confirmDelete.type = 'button'; confirmDelete.className = 'px-3 py-1.5 rounded-lg bg-orange-600 text-white text-xs font-semibold'; confirmDelete.textContent = '確定刪除';
       confirmDelete.onclick = () => deleteCustomCategory(type, name);
@@ -816,7 +871,7 @@ function renderCategoryManager() {
     }
     if (categoryBeingEdited === name) {
       const input = document.createElement('input');
-      input.type = 'text'; input.maxLength = 20; input.value = name;
+      input.type = 'text'; input.maxLength = CATEGORY_MAX; input.value = name;
       input.className = 'min-w-0 flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm';
       const save = document.createElement('button');
       save.type = 'button'; save.className = 'px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-semibold'; save.textContent = '儲存';
@@ -841,7 +896,7 @@ function renderCategoryManager() {
 }
 
 async function editCustomCategory(type, oldName, value) {
-  const newName = value.trim().slice(0, 20);
+  const newName = value.trim().slice(0, CATEGORY_MAX);
   if (!newName || newName === oldName) { categoryBeingEdited = null; renderCategoryManager(); return; }
   if (getCategoriesFor(type).includes(newName)) return showToast('這個類別名稱已經存在');
   const affected = records.filter(r => r.type === type && r.category === oldName);
@@ -1035,17 +1090,22 @@ function renderRecordSearch() {
 }
 
 async function deleteRecord(r) {
-  await dbTx('records', 'readwrite', s => s.delete(r.id));
-  records = records.filter(x => x.id !== r.id);
-  renderLedger();
-  updateAnalytics();
-  updateBudget();
-  showToast('已刪除紀錄', '復原', async () => {
-    await mergeRecordsIn([r]);
+  try {
+    await dbTx('records', 'readwrite', s => s.delete(r.id));
+    records = records.filter(x => x.id !== r.id);
     renderLedger();
     updateAnalytics();
     updateBudget();
-  });
+    showToast('已刪除紀錄', '復原', async () => {
+      await mergeRecordsIn([r]);
+      renderLedger();
+      updateAnalytics();
+      updateBudget();
+    });
+  } catch (e) {
+    logError('delete', e);
+    showToast('刪除失敗：資料庫無法寫入');
+  }
 }
 
 /* ---------- Analytics & Charts Renderer ---------- */
@@ -1437,19 +1497,27 @@ function switchTab(tabName) {
 document.addEventListener('DOMContentLoaded', async () => {
   $('#btnBackup').disabled = true;
   $('#btnSearch').disabled = true;
-  const todayStr = ymd();
   const shortcutAction = new URLSearchParams(location.search).get('action');
   if (shortcutAction === 'expense' || shortcutAction === 'income') manualType = shortcutAction;
-  $('#manualDate').value = todayStr;
-  $('#filterMonth').value = todayStr.slice(0, 7);
-  $('#recordSearchFrom').value = todayStr.slice(0, 4) + '-01-01';
-  $('#recordSearchTo').value = todayStr;
+  syncTodayFields();
+  const onDayChange = () => {
+    if (document.visibilityState && document.visibilityState !== 'visible') return;
+    const prev = lastAutoDate;
+    const t = syncTodayFields();
+    if (t === prev) return;
+    if ($('#filterMonth').value === t.slice(0, 7)) renderLedger();
+    renderRecordSearch();
+  };
+  document.addEventListener('visibilitychange', onDayChange);
+  window.addEventListener('focus', onDayChange);
 
   try {
     db = await openDB();
     records = (await dbTx('records', 'readonly', s => s.getAll())).map(sanitizeRecord).filter(Boolean);
   } catch (e) {
-    showToast('瀏覽器儲存空間受限，資料可能無法持久保存');
+    db = null;
+    logError('init-db', e);
+    showToast('資料庫初始化失敗，記帳將無法儲存！請檢查瀏覽器儲存權限或無痕模式', null, null, 10000);
   }
 
   records.forEach(r => lastId = Math.max(lastId, r.id));
@@ -1491,8 +1559,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const savedCategories = await settingsGet('customCategories');
     if (savedCategories) {
       customCategories = {
-        expense: Array.isArray(savedCategories.expense) ? savedCategories.expense.filter(n => typeof n === 'string' && n.trim()) : [],
-        income: Array.isArray(savedCategories.income) ? savedCategories.income.filter(n => typeof n === 'string' && n.trim()) : []
+        expense: cleanNames(savedCategories.expense),
+        income: cleanNames(savedCategories.income)
       };
     }
   } catch (e) {}
@@ -1553,11 +1621,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Quick NLP Input
   $('#quickInput').addEventListener('input', () => {
     const val = $('#quickInput').value;
+    const today = syncTodayFields();
     const p = parseQuickInput(val, { names: { expense: getCategoriesFor('expense'), income: getCategoriesFor('income') }, today: new Date() });
     const preview = $('#quickPreview');
     if (!val.trim()) { preview.textContent = ''; return; }
     if (p.ok) {
-      preview.textContent = `${iconFor(p.type, p.category)} ${p.category}　${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}　${p.date === todayStr ? '今天' : p.date}${p.note ? '　' + p.note : ''}`;
+      preview.textContent = `${iconFor(p.type, p.category)} ${p.category}　${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}　${p.date === today ? '今天' : p.date}${p.note ? '　' + p.note : ''}`;
       preview.className = 'text-xs text-teal-600 dark:text-teal-400 font-medium';
     } else {
       preview.textContent = '請加上金額，例如「午餐 120」或「薪水 +30000」';
@@ -1567,17 +1636,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   $('#quickForm').addEventListener('submit', async e => {
     e.preventDefault();
+    if (recordWriteBusy) return;
     const p = parseQuickInput($('#quickInput').value, { names: { expense: getCategoriesFor('expense'), income: getCategoriesFor('income') }, today: new Date() });
     if (!p.ok) return showToast('無法識別，請加上金額（例如：午餐 120）');
-    const newR = { id: nextId(), date: p.date, type: p.type, category: p.category, amount: p.amount, note: p.note };
-    await dbTx('records', 'readwrite', s => s.put(newR));
-    records.push(newR);
+    const newR = await persistNewRecord({ date: p.date, type: p.type, category: p.category, amount: p.amount, note: p.note });
+    if (!newR) return;
     $('#quickInput').value = '';
     $('#quickPreview').textContent = '';
     renderLedger();
     updateAnalytics();
     updateBudget();
-    showToast(`已快速記帳：${p.category} ${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}`);
+    showToast(`已快速記帳：${p.category} ${p.type === 'income' ? '+' : '-'}${fmt(p.amount)}`, '復原', () => undoAdd(newR));
   });
 
   $('#manualNote').addEventListener('input', renderNoteChips);
@@ -1586,20 +1655,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Manual Form Submit
   $('#manualForm').addEventListener('submit', async e => {
     e.preventDefault();
-    if (manualBusy) return;
+    if (recordWriteBusy) return;
     const amount = round2(parseFloat($('#manualAmount').value));
     if (!(amount > 0)) return showToast('請輸入大於 0 的金額');
-    const newR = {
-      id: nextId(),
-      date: $('#manualDate').value || todayStr,
+    const newR = await persistNewRecord({
+      date: $('#manualDate').value || ymd(),
       type: manualType,
       category: selectedCategory,
       amount,
       note: $('#manualNote').value.trim()
-    };
-    manualBusy = true;
-    try { await dbTx('records', 'readwrite', s => s.put(newR)); } finally { manualBusy = false; }
-    records.push(newR);
+    });
+    if (!newR) return;
     // 若這筆是剛掃描帶入的發票（支出、金額沒被改過、10 分鐘內）：記下「發票號碼 → 這筆紀錄」，並在記完後重新開啟掃描
     let reopenScanner = false;
     if (pendingInvoice) {
@@ -1611,7 +1677,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     $('#manualAmount').value = '';
     $('#manualNote').value = '';
-    $('#manualDate').value = todayStr;
+    $('#manualDate').value = ymd();
+    lastAutoDate = $('#manualDate').value;
     selectedCategory = null;
     renderCategoryChips();
     renderLedger();
@@ -1750,6 +1817,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <h3 class="font-bold">管理自訂類別</h3>
       <button type="button" id="categoryManagerClose" aria-label="關閉" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">✕</button>
     </div>
+    <p class="text-xs text-slate-500 dark:text-slate-400">刪除自訂類別時，按下「確定刪除」後會強制將既有紀錄轉為「其他」。</p>
     <select id="manageCategoryType" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base">
       <option value="expense">支出類別</option><option value="income">收入類別</option>
     </select>
@@ -1759,7 +1827,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 </dialog>
 <script>
 const refreshAll = () => { renderCategoryChips(); renderLedger(); updateAnalytics(); updateBudget(); };
-const undoAdd = async n => { await dbTx('records', 'readwrite', s => s.delete(n.id)); records = records.filter(x => x.id !== n.id); refreshAll(); };
+const undoAdd = async n => {
+  try {
+    await dbTx('records', 'readwrite', s => s.delete(n.id));
+    records = records.filter(x => x.id !== n.id);
+    refreshAll();
+  } catch (e) {
+    logError('undo', e);
+    showToast('復原失敗：資料庫無法寫入');
+  }
+};
 
 /* 編輯 */
 let editing = null;
@@ -1795,8 +1872,10 @@ function renderFrequent() {
     b.className = 'flex-none px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm shadow-sm active:scale-95 transition';
     b.textContent = iconFor(r.type, r.category) + ' ' + (r.note || r.category) + ' ' + fmt(r.amount);
     b.onclick = async () => {
-      const n = { id: nextId(), date: ymd(), type: r.type, category: r.category, amount: r.amount, note: r.note };
-      await dbTx('records', 'readwrite', s => s.put(n)); records.push(n); refreshAll();
+      if (recordWriteBusy) return;
+      const n = await persistNewRecord({ date: ymd(), type: r.type, category: r.category, amount: r.amount, note: r.note });
+      if (!n) return;
+      refreshAll();
       showToast('已記：' + n.category + ' ' + (n.type === 'income' ? '+' : '-') + fmt(n.amount), '復原', () => undoAdd(n));
     };
     return b;
@@ -1880,13 +1959,18 @@ function applyColorMode(mode, persist = false) {
 async function clearAllRecords() {
   if (!records.length) return showToast('目前沒有記帳記錄');
   if (!confirm(`確定刪除全部 ${records.length} 筆記帳明細嗎？刪除前會先暫存一份，可在「資料管理」還原。`)) return;
-  await settingsPut({ key: 'pre-restore', data: records });
-  await dbTx('records', 'readwrite', s => s.clear());
-  records = [];
-  $('#backupDlg').close();
-  refreshAll();
-  updateBackupUI();
-  showToast('已刪除全部記帳記錄');
+  try {
+    await settingsPut({ key: 'pre-restore', data: records });
+    await dbTx('records', 'readwrite', s => s.clear());
+    records = [];
+    $('#backupDlg').close();
+    refreshAll();
+    updateBackupUI();
+    showToast('已刪除全部記帳記錄');
+  } catch (e) {
+    logError('clear', e);
+    showToast('刪除失敗：資料庫無法寫入');
+  }
 }
 document.addEventListener('DOMContentLoaded', () => {
   try {
@@ -1919,7 +2003,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   $('#manageCategoryType').onchange = renderCategoryManager;
   $('#addManagedCategory').onclick = () => {
-    const name = (prompt('請輸入新類別名稱（最多 20 個字）') || '').trim();
+    const name = (prompt('請輸入新類別名稱（最多 ' + CATEGORY_MAX + ' 個字）') || '').trim();
     if (name) addCustomCategory($('#manageCategoryType').value, name);
   };
   $('#categoryManagerClose').onclick = () => $('#categoryManagerDlg').close();
@@ -1931,9 +2015,14 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const u = sanitizeRecord({ id: editing.id, type: $('#eType').value, amount: $('#eAmount').value, category: $('#eCat').value, date: $('#eDate').value, note: $('#eNote').value });
     if (!u) return showToast('資料不正確，請檢查金額與日期');
-    await dbTx('records', 'readwrite', s => s.put(u));
-    records = records.map(x => x.id === u.id ? u : x);
-    $('#editDlg').close(); refreshAll(); showToast('已更新紀錄');
+    try {
+      await dbTx('records', 'readwrite', s => s.put(u));
+      records = records.map(x => x.id === u.id ? u : x);
+      $('#editDlg').close(); refreshAll(); showToast('已更新紀錄');
+    } catch (err) {
+      logError('edit', err);
+      showToast('儲存失敗：資料庫無法寫入');
+    }
   });
 });
 </script>
@@ -2551,7 +2640,7 @@ async function applyInvoice(inv) {
   const log = await invoiceLog();
   if (isInvoiceRecorded(log, inv.no) && !confirm(`發票 ${inv.no} 已經記過帳了，要再記一次嗎？`)) { openScanner(); return; }
 
-  const note = [...new Set(inv.items.map(i => i.name))].join('、').slice(0, 100);
+  const note = [...new Set(inv.items.map(i => i.name))].join('、').slice(0, NOTE_MAX);
   const catNames = getCategoriesFor('expense');
   // 類別優先順序：依品名關鍵字（多品項以金額最大的類別為準）> 同一間店上次記的類別 > 「發票」類別
   // 品名比店家記憶可靠：加油站、便利商店、量販店什麼都賣，只憑店家會把「九二無鉛」記成上次買的飲料
@@ -2877,6 +2966,19 @@ async function reloadFromStorage() {
 }
 
 async function updateBackupUI() {
+  const banner = $('#backupBanner'), btn = $('#bannerBtn');
+  if (!db) {
+    banner.classList.remove('hidden', 'bg-amber-50', 'dark:bg-amber-950/40', 'border-amber-200', 'dark:border-amber-900');
+    banner.classList.add('bg-rose-50', 'dark:bg-rose-950/40', 'border-rose-300', 'dark:border-rose-900');
+    $('#bannerText').textContent = '⚠️ 資料庫無法開啟，記帳資料將無法儲存！請檢查瀏覽器儲存權限或無痕模式。';
+    btn.textContent = '重新載入';
+    btn.className = 'flex-none px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs transition';
+    btn.onclick = () => location.reload();
+    return;
+  }
+  banner.classList.remove('bg-rose-50', 'dark:bg-rose-950/40', 'border-rose-300', 'dark:border-rose-900');
+  banner.classList.add('bg-amber-50', 'dark:bg-amber-950/40', 'border-amber-200', 'dark:border-amber-900');
+  btn.className = 'flex-none px-3 py-1.5 rounded-xl bg-amber-500 text-white font-semibold';
   const le = ((await settingsGet('lastExport')) || {}).at || 0;
   const rec = await settingsGet('dirHandle');
   backupHandle = rec && rec.handle || null;
@@ -2887,7 +2989,6 @@ async function updateBackupUI() {
   let base = le;
   if (!base && records.length) { let fu = await settingsGet('firstUse'); if (!fu) { fu = { key: 'firstUse', at: Date.now() }; await settingsPut(fu); } base = fu.at; }
   const days = base ? Math.floor((Date.now() - base) / 864e5) : 0;
-  const banner = $('#backupBanner'), btn = $('#bannerBtn');
   const stale = records.length > 0 && days >= reminderDays;
   banner.classList.toggle('hidden', !(stale || (rec && needPerm)));
   if (rec && needPerm) { $('#bannerText').textContent = '備份資料夾需要重新授權才能自動備份'; btn.textContent = '重新授權'; btn.onclick = regrant; }
