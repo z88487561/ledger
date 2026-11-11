@@ -2535,6 +2535,7 @@ let nativeFail = '';                 // 最近一次寫入失敗的原因；空�
 const nativeAlt = new Set();         // 同名舊檔寫不進去（例如重裝後）而改用別名的檔名
 let _np = null;
 function nativePlugins() {
+  if (typeof Capacitor.registerPlugin !== 'function') throw new Error('Capacitor 執行環境未載入（capacitor.js）');
   if (!_np) _np = { Filesystem: Capacitor.registerPlugin('Filesystem'), Share: Capacitor.registerPlugin('Share') };
   return _np;
 }
@@ -2551,7 +2552,9 @@ async function nativeInstId() {
 }
 // content：字串（utf8）或 base64（isBase64=true）。成功回傳實際檔名，失敗回傳 null。
 async function nativePut(name, content, isBase64 = false) {
-  const { Filesystem } = nativePlugins();
+  let Filesystem;
+  try { Filesystem = nativePlugins().Filesystem; }
+  catch (e) { nativeFail = (e && e.message) || '外掛載入失敗'; logError('native-write', e); return null; }
   const put = n => Filesystem.writeFile(Object.assign({ path: NATIVE_DIR + '/' + n, directory: 'DOCUMENTS', data: content, recursive: true }, isBase64 ? {} : { encoding: 'utf8' }));
   const altName = async () => name.replace(/(\.\w+)$/, '_' + await nativeInstId() + '$1');
   try {
