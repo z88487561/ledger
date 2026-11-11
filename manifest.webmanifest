@@ -1,9 +1,9 @@
 {
+  "id": "./?app=ledger",
   "name": "智慧記帳本",
   "short_name": "記帳",
   "description": "快速、離線可用的個人記帳本",
   "lang": "zh-TW",
-  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1681,11 +1681,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderCategoryChips();
   renderLedger();
   await updateBackupUI();
-  const folderSetupPrompted = await settingsGet('folderSetupPrompted');
-  const savedFolder = await settingsGet('dirHandle');
   $('#btnBackup').disabled = false;
   $('#btnSearch').disabled = false;
-  if (window.showDirectoryPicker && !savedFolder && !folderSetupPrompted) $('#backupSetupDlg').showModal();
+  if (await Backup.needsSetupPrompt()) $('#backupSetupDlg').showModal();
 
   // Tab Listeners
   $$('.tab-btn').forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -1889,7 +1887,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // PWA Service Worker Registration
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  if (!IS_NATIVE && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {   // APK 內資源已在本機，不需要 SW
     // 已有舊版 SW 接管時，新版 SW 接手代表有新版本；首次安裝不提示
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -2150,6 +2148,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <button type="button" id="bkImportJson" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 JSON</button>
       <button type="button" id="bkShare" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯出 CSV 並分享</button>
       <button type="button" id="bkImportCsv" class="px-3 py-3 rounded-xl font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 transition">匯入 CSV</button>
+      <button type="button" id="bkShareJson" class="hidden col-span-2 px-3 py-3 rounded-xl font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition">分享 JSON 備份（傳到雲端硬碟／LINE）</button>
     </div>
     <h4 class="border-t border-slate-100 dark:border-slate-800 pt-3 text-sm font-semibold">備份設定</h4>
     <div class="flex items-end gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-3">
@@ -2393,68 +2392,230 @@ async function runBackup(forceDated = false) {
   } catch (e) {}
   // 每次變更只更新 latest；日期檔每天第一次與頁面進背景時才寫，避免每筆記帳都寫兩份＋掃描資料夾
   const withDated = forceDated || lastDatedDay !== day;
-  const written = await writeFolder(data, day, withDated);
+  const written = await Backup.write(data, day, withDated);
   if (written) { if (withDated) lastDatedDay = day; datedStale = !withDated; }
   if (written) await markExport(); else updateBackupUI();
   return written;
 }
 
-async function writeFolder(data, day, withDated = true) {
-  if (!window.showDirectoryPicker) return false;
-  try {
-    const rec = await settingsGet('dirHandle');
-    if (!rec) return false;
-    backupHandle = rec.handle;
-    if (await backupHandle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
-    needPerm = false;
-    const put = async (name, text) => { const w = await (await backupHandle.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
-    await put(backupName('json', 'latest'), data);
-    if (!withDated) return true;
-    await put(backupName('json', day), data);
-    const cut = ymd(new Date(Date.now() - 6 * 864e5)), names = [];
-    for await (const [name] of backupHandle.entries()) names.push(name);
-    for (const n of names) { const m = n.match(/^(?:smart-ledger_|ledger-)(\d{4}-\d{2}-\d{2})\.json$/); if (m && m[1] < cut) await backupHandle.removeEntry(n); }
-    return true;
-  } catch (e) { return false; }
+/* ==================== 備份目標（BackupTarget）====================
+   備份層只透過 Backup 這個物件和外界溝通；每個平台各自實作同一組介面，備份格式、命名與還原邏輯共用：
+     kind / jsonLabel / savedWhere   目標種類、「匯出 JSON」按鈕文字、提示訊息用的存放位置名稱
+     needsSetupPrompt()   Promise<bool>   啟動時是否要跳出「設定備份資料夾」
+     status()             Promise<{ pick, text, alert }>   給資料管理頁與橫幅用；alert 有值時顯示 { text, button, run }
+     write(data, day, withDated)   Promise<bool>   自動備份：寫 latest；withDated 時另寫日期檔並清除過期檔
+     saveFile(file)       Promise<bool|string>   靜默把匯出檔存進備份位置（失敗回傳 false）
+     exportJson(mk, name)          按「匯出 JSON」
+     share(file, title)   Promise<'shared'|'cancel'|false>   叫出分享選單；這個環境不能分享回傳 false，失敗則丟出錯誤
+     download(file)                分享失敗或不支援時的後備
+   實作：FolderBackup（桌面 Chrome／Edge 資料夾）、NativeBackup（Android App：文件／SmartLedger）、WebBackup（只能下載）。 */
+const IS_NATIVE = !!(window.Capacitor && typeof Capacitor.isNativePlatform === 'function' && Capacitor.isNativePlatform());
+const KEEP_DAYS = 7;
+const BACKUP_FILE_RE = /^(?:smart-ledger_|ledger-)(\d{4}-\d{2}-\d{2})(?:_[0-9a-z]+)?\.json$/;
+const keepCutoff = () => ymd(new Date(Date.now() - (KEEP_DAYS - 1) * 864e5));
+
+function webShare(file, title) {
+  // 必須在點擊手勢內同步呼叫 navigator.share，所以這裡不能有 await
+  if (!canShareFile(file)) return Promise.resolve(false);
+  return navigator.share({ files: [file], title }).then(() => 'shared', e => { if (e && e.name === 'AbortError') return 'cancel'; throw e; });
 }
 
-async function pickFolder() {
-  try {
-    const h = await showDirectoryPicker({ mode: 'readwrite' });
-    backupHandle = h;
-    await settingsPut({ key: 'dirHandle', handle: h });
-    needPerm = false;
-    await settingsPut({ key: 'folderSetupPrompted', shown: true });
-    $('#backupSetupDlg').close();
-    const hadRecords = records.length > 0;
-    const written = await runBackup();
-    showToast(!hadRecords || written ? '已設定資料夾，自動備份與匯出檔案會直接存入此資料夾' : '資料夾已設定，但備份寫入失敗；請確認資料夾權限');
-  } catch (e) { if (e.name !== 'AbortError') showToast('無法使用這個資料夾，請改選其他資料夾'); }
-  updateBackupUI();
-}
-async function regrant() {
-  try {
+/* ---------- 桌面 Chrome／Edge：File System Access 資料夾 ---------- */
+const FolderBackup = {
+  kind: 'folder', jsonLabel: '匯出 JSON', savedWhere: '備份資料夾',
+  async needsSetupPrompt() { return !(await settingsGet('dirHandle')) && !(await settingsGet('folderSetupPrompted')); },
+  async status() {
     const rec = await settingsGet('dirHandle');
-    if (rec && await rec.handle.requestPermission({ mode: 'readwrite' }) === 'granted') { needPerm = false; await runBackup(); showToast('已重新授權備份資料夾'); }
-  } catch (e) {}
-  updateBackupUI();
-}
-async function getBackupDirectory(selectIfMissing, requestPermission) {
-  if (!window.showDirectoryPicker) return null;
-  try {
-    if (!backupHandle) {
-      if (!selectIfMissing) return null;
-      backupHandle = await showDirectoryPicker({ mode: 'readwrite' });
-      await settingsPut({ key: 'dirHandle', handle: backupHandle });
+    backupHandle = rec && rec.handle || null;
+    return {
+      pick: true,
+      text: rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。',
+      alert: rec && needPerm ? { text: '備份資料夾需要重新授權才能自動備份', button: '重新授權', run: regrant } : null
+    };
+  },
+  async write(data, day, withDated = true) {
+    try {
+      const rec = await settingsGet('dirHandle');
+      if (!rec) return false;
+      backupHandle = rec.handle;
+      if (await backupHandle.queryPermission({ mode: 'readwrite' }) !== 'granted') { needPerm = true; return false; }
+      needPerm = false;
+      const put = async (name, text) => { const w = await (await backupHandle.getFileHandle(name, { create: true })).createWritable(); await w.write(text); await w.close(); };
+      await put(backupName('json', 'latest'), data);
+      if (!withDated) return true;
+      await put(backupName('json', day), data);
+      const cut = keepCutoff(), names = [];
+      for await (const [name] of backupHandle.entries()) names.push(name);
+      for (const n of names) { const m = n.match(BACKUP_FILE_RE); if (m && m[1] < cut) await backupHandle.removeEntry(n); }
+      return true;
+    } catch (e) { return false; }
+  },
+  async pick() {
+    try {
+      const h = await showDirectoryPicker({ mode: 'readwrite' });
+      backupHandle = h;
+      await settingsPut({ key: 'dirHandle', handle: h });
+      needPerm = false;
       await settingsPut({ key: 'folderSetupPrompted', shown: true });
+      $('#backupSetupDlg').close();
+      const hadRecords = records.length > 0;
+      const written = await runBackup();
+      showToast(!hadRecords || written ? '已設定資料夾，自動備份與匯出檔案會直接存入此資料夾' : '資料夾已設定，但備份寫入失敗；請確認資料夾權限');
+    } catch (e) { if (e.name !== 'AbortError') showToast('無法使用這個資料夾，請改選其他資料夾'); }
+    updateBackupUI();
+  },
+  async regrant() {
+    try {
+      const rec = await settingsGet('dirHandle');
+      if (rec && await rec.handle.requestPermission({ mode: 'readwrite' }) === 'granted') { needPerm = false; await runBackup(); showToast('已重新授權備份資料夾'); }
+    } catch (e) {}
+    updateBackupUI();
+  },
+  async dir(selectIfMissing, requestPermission) {
+    try {
+      if (!backupHandle) {
+        if (!selectIfMissing) return null;
+        backupHandle = await showDirectoryPicker({ mode: 'readwrite' });
+        await settingsPut({ key: 'dirHandle', handle: backupHandle });
+        await settingsPut({ key: 'folderSetupPrompted', shown: true });
+      }
+      let permission = await backupHandle.queryPermission({ mode: 'readwrite' });
+      if (permission !== 'granted' && requestPermission) permission = await backupHandle.requestPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') { needPerm = true; return null; }
+      needPerm = false;
+      return backupHandle;
+    } catch (e) { if (e.name !== 'AbortError') { needPerm = true; logError('folder', e); } return null; }
+  },
+  async saveFile(file) {
+    const dir = await FolderBackup.dir(false, false);
+    if (!dir) return false;
+    try {
+      const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
+      await writable.write(file); await writable.close();
+      return true;
+    } catch (e) { return false; }
+  },
+  async exportJson(mk, name) {
+    // 第一個 await 就要是 dir()：選資料夾／要求權限都需要點擊手勢
+    const dir = await FolderBackup.dir(true, true);
+    if (!dir) { updateBackupUI(); return showToast('未選擇資料夾或未授權，沒有匯出'); }
+    let file = null;
+    try {
+      file = await mk();
+      const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
+      await writable.write(file); await writable.close();
+      await markExport();
+      showToast('已匯出到備份資料夾：' + name);
+    } catch (e) {
+      logError('export', e);
+      showToast(`寫入資料夾失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', async () => { downloadExport(file || await mk()); markExport(); });
     }
-    let permission = await backupHandle.queryPermission({ mode: 'readwrite' });
-    if (permission !== 'granted' && requestPermission) permission = await backupHandle.requestPermission({ mode: 'readwrite' });
-    if (permission !== 'granted') { needPerm = true; return null; }
-    needPerm = false;
-    return backupHandle;
-  } catch (e) { if (e.name !== 'AbortError') { needPerm = true; logError('folder', e); } return null; }
+  },
+  share: webShare,
+  download(file) { downloadExport(file); }
+};
+
+/* ---------- 其他瀏覽器（手機瀏覽器、Firefox、Safari）：只能下載 ---------- */
+const WebBackup = {
+  kind: 'web', jsonLabel: '下載 JSON 備份', savedWhere: '',
+  async needsSetupPrompt() { return false; },
+  async status() { return { pick: false, text: '此瀏覽器不支援自動寫入資料夾，請定期用「下載 JSON 備份」或「匯出 CSV 並分享」備份。', alert: null }; },
+  async write() { return false; },
+  async saveFile() { return false; },
+  async exportJson(mk) { downloadExport(await mk()); await markExport(); showToast('此瀏覽器無法寫入資料夾，已改為下載 JSON'); },
+  share: webShare,
+  download(file) { downloadExport(file); }
+};
+
+/* ---------- Android App（Capacitor）：寫到 文件／SmartLedger ----------
+   不需要選資料夾、不會過期授權。位置在 App 私有空間之外：清除 App 資料不會刪掉它；
+   解除安裝後檔案通常還在，但重裝的 App 讀不到，要用「匯入 JSON」自己選檔還原。 */
+const NATIVE_DIR = 'SmartLedger';
+let nativeFail = '';                 // 最近一次寫入失敗的原因；空字串＝正常
+const nativeAlt = new Set();         // 同名舊檔寫不進去（例如重裝後）而改用別名的檔名
+let _np = null;
+function nativePlugins() {
+  if (!_np) _np = { Filesystem: Capacitor.registerPlugin('Filesystem'), Share: Capacitor.registerPlugin('Share') };
+  return _np;
 }
+async function fileToBase64(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+async function nativeInstId() {
+  let r = await settingsGet('nativeInstId');
+  if (!r) { r = { key: 'nativeInstId', id: Math.random().toString(36).slice(2, 6) }; await settingsPut(r); }
+  return r.id;
+}
+// content：字串（utf8）或 base64（isBase64=true）。成功回傳實際檔名，失敗回傳 null。
+async function nativePut(name, content, isBase64 = false) {
+  const { Filesystem } = nativePlugins();
+  const put = n => Filesystem.writeFile(Object.assign({ path: NATIVE_DIR + '/' + n, directory: 'DOCUMENTS', data: content, recursive: true }, isBase64 ? {} : { encoding: 'utf8' }));
+  const altName = async () => name.replace(/(\.\w+)$/, '_' + await nativeInstId() + '$1');
+  try {
+    const n = nativeAlt.has(name) ? await altName() : name;
+    await put(n); nativeFail = ''; return n;
+  } catch (e1) {
+    if (nativeAlt.has(name)) { nativeFail = (e1 && (e1.message || e1.code)) || '未知錯誤'; logError('native-write', e1); return null; }
+    try { const n = await altName(); await put(n); nativeAlt.add(name); nativeFail = ''; return n; }
+    catch (e2) { nativeFail = (e2 && (e2.message || e2.code)) || '未知錯誤'; logError('native-write', e2); return null; }
+  }
+}
+// 不用 readdir（Android 11–12 會多跳一個讀取權限視窗）：直接刪「過期日期」的檔名，不存在就忽略
+async function nativePrune() {
+  const { Filesystem } = nativePlugins(), jobs = [];
+  for (let i = KEEP_DAYS; i < KEEP_DAYS + 7; i++) {
+    jobs.push(Filesystem.deleteFile({ path: NATIVE_DIR + '/' + backupName('json', ymd(new Date(Date.now() - i * 864e5))), directory: 'DOCUMENTS' }));
+  }
+  await Promise.allSettled(jobs);
+}
+const NativeBackup = {
+  kind: 'native', jsonLabel: '匯出 JSON', savedWhere: '文件／' + NATIVE_DIR,
+  async needsSetupPrompt() { return false; },
+  async status() {
+    return {
+      pick: false,
+      text: nativeFail
+        ? `⚠️ 無法寫入「文件／${NATIVE_DIR}」（${nativeFail}）。請先用「分享 JSON 備份」存到雲端硬碟。`
+        : `自動備份：每次記帳後存到「文件／${NATIVE_DIR}」資料夾（保留最近 ${KEEP_DAYS} 天）。重新安裝 App 後，請用「匯入 JSON」選取備份檔還原。`,
+      alert: nativeFail ? { text: '⚠️ 自動備份寫入失敗，資料目前只存在 App 內', button: '分享備份', run: shareJSONBackup } : null
+    };
+  },
+  async write(data, day, withDated = true) {
+    if (!await nativePut(backupName('json', 'latest'), data)) return false;
+    if (withDated) { await nativePut(backupName('json', day), data); nativePrune().catch(() => {}); }
+    return true;
+  },
+  async saveFile(file) {
+    try { return (await nativePut(file.name, await fileToBase64(file), true)) || false; }
+    catch (e) { logError('native-save', e); return false; }
+  },
+  async exportJson(mk, name) {
+    const file = await mk(), saved = await NativeBackup.saveFile(file);
+    if (saved) { await markExport(); showToast('已匯出到「文件／' + NATIVE_DIR + '」：' + saved); }
+    else showToast('寫入失敗，可改用分享', '分享', () => shareExportFile(file, '記帳備份 JSON'));
+  },
+  async share(file, title) {
+    const { Filesystem, Share } = nativePlugins();
+    if (!(await Share.canShare()).value) return false;
+    // 先寫到 cache（FileProvider 設定涵蓋 cache），再交給系統分享選單
+    const path = 'share/' + file.name;
+    await Filesystem.writeFile({ path, directory: 'CACHE', data: await fileToBase64(file), recursive: true });
+    const { uri } = await Filesystem.getUri({ path, directory: 'CACHE' });
+    try { await Share.share({ title, files: [uri] }); return 'shared'; }
+    catch (e) { if (/cancel/i.test(String(e && e.message))) return 'cancel'; throw e; }
+  },
+  async download(file) {
+    const saved = await NativeBackup.saveFile(file);
+    showToast(saved ? '已存到「文件／' + NATIVE_DIR + '」：' + saved : '存檔失敗，請確認儲存權限');
+  }
+};
+
+const Backup = IS_NATIVE ? NativeBackup : window.showDirectoryPicker ? FolderBackup : WebBackup;
+const pickFolder = () => FolderBackup.pick();
+const regrant = () => FolderBackup.regrant();
 
 function downloadExport(file) {
   const url = URL.createObjectURL(file);
@@ -2472,31 +2633,17 @@ function canShareFile(file) {
   } catch (e) { return false; }
 }
 
-const jsonBtnText = () => window.showDirectoryPicker ? '匯出 JSON' : '下載 JSON 備份';
+const jsonBtnText = () => Backup.jsonLabel;
 
 async function exportJSONToFolder() {
   if (!records.length) return showToast('目前沒有資料可以匯出');
   const name = backupName('json');
   const mk = async () => new File([await backupText(records)], name, { type: 'application/json' });
-  if (!window.showDirectoryPicker) {
-    downloadExport(await mk());
-    await markExport();
-    return showToast('此瀏覽器無法寫入資料夾，已改為下載 JSON');
-  }
-  // 第一個 await 就要是 getBackupDirectory：選資料夾／要求權限都需要點擊手勢
-  const dir = await getBackupDirectory(true, true);
-  if (!dir) { updateBackupUI(); return showToast('未選擇資料夾或未授權，沒有匯出'); }
-  let file = null;
-  try {
-    file = await mk();
-    const writable = await (await dir.getFileHandle(name, { create: true })).createWritable();
-    await writable.write(file); await writable.close();
-    await markExport();
-    showToast('已匯出到備份資料夾：' + name);
-  } catch (e) {
-    logError('export', e);
-    showToast(`寫入資料夾失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', async () => { downloadExport(file || await mk()); markExport(); });
-  }
+  return Backup.exportJson(mk, name);   // 選資料夾／授權需要點擊手勢，所以這裡不能有 await
+}
+async function shareJSONBackup() {
+  if (!records.length) return showToast('目前沒有資料可以匯出');
+  await shareExportFile(new File([await backupText(records)], backupName('json'), { type: 'application/json' }), '記帳備份 JSON');
 }
 
 async function exportCSVShare() {
@@ -2507,39 +2654,31 @@ async function exportCSVShare() {
 }
 
 async function shareExportFile(file, title) {
-  const kind = file.name.endsWith('.json') ? 'JSON' : 'CSV';
-  // 注意：share()/下載必須在點擊手勢內「同步」發動，所以前面不能有 await
-  const savePromise = writeSavedExport(file);
-  if (!canShareFile(file)) {
-    downloadExport(file);
-    const saved = await savePromise;
-    await markExport();
-    showToast(saved ? `${kind} 已下載並存入備份資料夾` : `此瀏覽器無法分享 ${kind} 檔，已改為下載`);
-    return;
-  }
-  try {
-    await navigator.share({ files: [file], title });
-    const saved = await savePromise;
-    await markExport();
-    showToast(saved ? `${kind} 已分享並存入備份資料夾` : `${kind} 已分享`);
-  } catch (e) {
+  const kind = file.name.endsWith('.json') ? 'JSON' : 'CSV', where = Backup.savedWhere;
+  // 注意：網頁版的 share()／下載必須在點擊手勢內「同步」發動，所以前面不能有 await
+  const savePromise = Backup.saveFile(file);
+  let result;
+  try { result = await Backup.share(file, title); }
+  catch (e) {
     const saved = await savePromise;
     if (saved) await markExport();
-    if (e && e.name === 'AbortError') return showToast(saved ? '備份已存入資料夾，已取消分享' : '已取消分享');
     logError('share', e);
     // 分享失敗時已不在點擊手勢內，改讓使用者再點一次來下載最穩
-    showToast(`分享失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { downloadExport(file); markExport(); });
+    return showToast(`分享失敗（${(e && e.name) || '未知錯誤'}）`, '改為下載', () => { Backup.download(file); markExport(); });
   }
-}
-
-async function writeSavedExport(file) {
-  const dir = await getBackupDirectory(false, false);
-  if (!dir) return false;
-  try {
-    const writable = await (await dir.getFileHandle(file.name, { create: true })).createWritable();
-    await writable.write(file); await writable.close();
-    return true;
-  } catch (e) { return false; }
+  if (result === false) {   // 這個環境不能分享檔案：改為下載
+    Backup.download(file);
+    const saved = await savePromise;
+    await markExport();
+    return showToast(saved ? `${kind} 已下載並存入${where}` : `此瀏覽器無法分享 ${kind} 檔，已改為下載`);
+  }
+  const saved = await savePromise;
+  if (result === 'cancel') {
+    if (saved) await markExport();
+    return showToast(saved ? `備份已存入${where}，已取消分享` : '已取消分享');
+  }
+  await markExport();
+  showToast(saved ? `${kind} 已分享並存入${where}` : `${kind} 已分享`);
 }
 
 function buildCSV(list) {
@@ -3065,6 +3204,7 @@ async function buildDiagnostics() {
   try { if ('caches' in window) L.push('快取版本：' + ((await caches.keys()).join(', ') || '無')); } catch (e) {}
   L.push('Service Worker：' + ('serviceWorker' in nav ? (nav.serviceWorker.controller ? '運作中' : '未接管') : '不支援'));
   L.push(`API：share=${typeof nav.share} canShare=${typeof nav.canShare} 資料夾=${!!window.showDirectoryPicker} 多視窗同步=${!!syncCh}`);
+  L.push('備份目標：' + Backup.kind + (IS_NATIVE ? '（Android App' + (nativeFail ? '，最近寫入失敗：' + nativeFail : '，寫入正常') + '）' : ''));
   const log = errorLog();
   L.push('', `最近錯誤（${log.length}）：`);
   log.forEach(x => L.push(`${new Date(x.t).toLocaleString('zh-TW')} [${x.kind}] ${x.name ? x.name + '：' : ''}${x.msg}${x.stack ? '\n    ' + x.stack : ''}`));
@@ -3101,8 +3241,7 @@ async function updateBackupUI() {
   banner.classList.add('bg-amber-50', 'dark:bg-amber-950/40', 'border-amber-200', 'dark:border-amber-900');
   btn.className = 'flex-none px-3 py-1.5 rounded-xl bg-amber-500 text-white font-semibold';
   const le = ((await settingsGet('lastExport')) || {}).at || 0;
-  const rec = await settingsGet('dirHandle');
-  backupHandle = rec && rec.handle || null;
+  const st = await Backup.status();
   const reminderSetting = await settingsGet('backupReminderDays');
   const reminderValue = Number(reminderSetting && reminderSetting.days);
   const reminderDays = Number.isInteger(reminderValue) && reminderValue >= 1 && reminderValue <= 365 ? reminderValue : 3;
@@ -3111,13 +3250,12 @@ async function updateBackupUI() {
   if (!base && records.length) { let fu = await settingsGet('firstUse'); if (!fu) { fu = { key: 'firstUse', at: Date.now() }; await settingsPut(fu); } base = fu.at; }
   const days = base ? Math.floor((Date.now() - base) / 864e5) : 0;
   const stale = records.length > 0 && days >= reminderDays;
-  banner.classList.toggle('hidden', !(stale || (rec && needPerm)));
-  if (rec && needPerm) { $('#bannerText').textContent = '備份資料夾需要重新授權才能自動備份'; btn.textContent = '重新授權'; btn.onclick = regrant; }
+  banner.classList.toggle('hidden', !(stale || st.alert));
+  if (st.alert) { $('#bannerText').textContent = st.alert.text; btn.textContent = st.alert.button; btn.onclick = st.alert.run; }
   else { $('#bannerText').textContent = le ? '已經 ' + days + ' 天沒有備份了' : '還沒有備份過，已使用 ' + days + ' 天，建議備份一份'; btn.textContent = jsonBtnText(); btn.onclick = exportJSONToFolder; }
   $('#bkStatus').textContent = '最近一次外部備份：' + (le ? new Date(le).toLocaleString('zh-TW') : '尚未備份');
-  $('#bkFolder').textContent = !window.showDirectoryPicker ? '此瀏覽器不支援自動寫入資料夾，請定期用「下載 JSON 備份」或「匯出 CSV 並分享」備份。'
-    : rec ? '已設定備份資料夾（直接存入，保留最近 7 天）' + (needPerm ? '，需要重新授權' : '') : '尚未設定備份資料夾。選一次之後就會自動備份。';
-  $('#bkPick').classList.toggle('hidden', !window.showDirectoryPicker);
+  $('#bkFolder').textContent = st.text;
+  $('#bkPick').classList.toggle('hidden', !st.pick);
   const snaps = ((await dbTx('settings', 'readonly', s => s.getAll())) || []).filter(o => String(o.key).startsWith('snap:') || o.key === 'pre-restore').sort((a, b) => a.key === 'pre-restore' ? -1 : b.key === 'pre-restore' ? 1 : a.key < b.key ? 1 : -1);
   $('#bkSnaps').replaceChildren(...(snaps.length ? snaps.map(sn => {
     const row = document.createElement('div'); row.className = 'flex items-center justify-between py-2 text-sm';
@@ -3156,7 +3294,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#bkExportJson').textContent = jsonBtnText();
   $('#bkExportJson').onclick = exportJSONToFolder;
   $('#btnClearRecords').onclick = clearAllRecords;
-  $('#bkShare').onclick = exportCSVShare; $('#bkPick').onclick = pickFolder; $('#bkClose').onclick = () => $('#backupDlg').close();
+  $('#bkShare').onclick = exportCSVShare; $('#bkPick').onclick = pickFolder;
+  if (IS_NATIVE) { $('#bkShareJson').classList.remove('hidden'); $('#bkShareJson').onclick = shareJSONBackup; } $('#bkClose').onclick = () => $('#backupDlg').close();
 });
 </script>
 </body>
