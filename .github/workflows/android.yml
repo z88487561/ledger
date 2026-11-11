@@ -22,25 +22,25 @@ permissions:
 
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VERSION_CODE: ${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: 安裝相依套件並同步網頁到 Android 專案
         run: |
@@ -84,7 +84,7 @@ jobs:
             cp app/build/outputs/apk/debug/app-debug.apk "../smart-ledger-${VERSION_NAME}-${VERSION_CODE}-DEBUG-unstable-signature.apk"
           fi
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: smart-ledger-apk
           path: smart-ledger-*.apk
@@ -92,6 +92,6 @@ jobs:
 
       - name: 建立 Release（推 v* 標籤時）
         if: startsWith(github.ref, 'refs/tags/v') && steps.keystore.outputs.signed == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: smart-ledger-*.apk
