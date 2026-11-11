@@ -76,6 +76,7 @@ jobs:
       - name: 建置 APK
         working-directory: android
         run: |
+          chmod +x gradlew   # zip／Windows 常會弄丟可執行權限（exit code 126）
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
             ./gradlew --no-daemon assembleRelease
             cp app/build/outputs/apk/release/app-release.apk "../smart-ledger-${VERSION_NAME}-${VERSION_CODE}.apk"
