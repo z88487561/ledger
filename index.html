@@ -22,6 +22,8 @@
   }
   button { touch-action: manipulation; }
   #toast { bottom: calc(1.5rem + env(safe-area-inset-bottom)) !important; }
+  /* Android 16 App 為邊到邊顯示：標題列往下讓出狀態列（一般瀏覽器為 0，無影響） */
+  body > header.sticky { padding-top: env(safe-area-inset-top, 0px); }
   .tabular-nums { font-variant-numeric: tabular-nums; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
