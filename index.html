@@ -3016,6 +3016,22 @@ function getVideoCropRect(video, wrap, box) {
 
 const isGarbled = r => (r.rawText || '').includes('\uFFFD');
 
+/* ---- 掃描步驟紀錄：萬一 App 在掃描途中被系統關掉，下次開啟時就知道停在哪一步 ---- */
+const SCAN_STAGE_KEY = 'ledger_scan_stage';
+const SCAN_STAGE_LABELS = { open: '開啟相機', 'cam-ready': '相機運作中', left: '讀到左側 QR', finish: '結束掃描', stopped: '關閉相機之後', 'dlg-closed': '關閉掃描視窗之後', applying: '帶入表單' };
+const scanWait = ms => new Promise(r => setTimeout(r, ms));
+function markScanStage(stage) { try { localStorage.setItem(SCAN_STAGE_KEY, stage + '@' + Date.now()); } catch (e) {} }
+function reportScanCrash() {
+  try {
+    const v = localStorage.getItem(SCAN_STAGE_KEY); if (!v) return;
+    localStorage.removeItem(SCAN_STAGE_KEY);
+    const stage = v.split('@')[0]; if (!SCAN_STAGE_LABELS[stage]) return;   // ok／user-close：正常結束
+    const msg = '上次掃描發票在「' + SCAN_STAGE_LABELS[stage] + '」這一步中斷了';
+    logError('scan-interrupted', new Error(msg));
+    showToast(msg, null, null, 9000);
+  } catch (e) {}
+}
+
 /** 處理一批掃描結果：記下左／右 QR、每讀到新的一個就提示。已讀到但含亂碼的內容，之後若讀到乾淨的版本會換掉 */
 function handleScanCodes(codes) {
   const preferredEnc = scanState.left ? scanState.left.enc : null;
@@ -3026,7 +3042,7 @@ function handleScanCodes(codes) {
     const cur = scanState[r.kind];
     if (!cur) {
       scanState[r.kind] = r; gotNew = true;
-      if (r.kind === 'left') scanState.leftAt = Date.now();
+      if (r.kind === 'left') { scanState.leftAt = Date.now(); markScanStage('left'); }
     } else if (isGarbled(cur) && !isGarbled(r) && (r.kind === 'right' || cur.no === r.no)) {
       scanState[r.kind] = r;
     }
@@ -3045,15 +3061,25 @@ function handleScanCodes(codes) {
 }
 
 /** 左側 QR 已讀到（右側可有可無）：合併品項、關閉掃描視窗、帶入表單 */
-function finishScan() {
+async function finishScan() {
   if (scanState.done || !scanState.left) return;
   scanState.done = true;
   const l = scanState.left, r = scanState.right;
   const items = l.items.slice();
   if (r) items.push(...invoiceItems(r.fields, l.enc));
+  // 先讓相機完全釋放，再分開幾個步驟關視窗、帶入表單。
+  // Android WebView 在同一瞬間連續做這幾件事時，渲染程序曾經崩潰（App 被直接關掉）。
+  markScanStage('finish');
   stopScanner();
+  markScanStage('stopped');
+  await scanWait(350);
   $('#scanDlg').close();
-  applyInvoice({ ...l, items }).catch(e => { logError('invoice', e); showToast('發票資料帶入失敗'); });
+  markScanStage('dlg-closed');
+  await scanWait(250);
+  markScanStage('applying');
+  try { await applyInvoice({ ...l, items }); }
+  catch (e) { logError('invoice', e); showToast('發票資料帶入失敗'); }
+  markScanStage('ok');
 }
 
 function stopScanner() {
@@ -3164,6 +3190,7 @@ function scanLoop(ts) {
 }
 
 async function openScanner() {
+  markScanStage('open');
   Object.assign(scanState, { left: null, right: null, leftAt: 0, busy: false, last: 0, torchOn: false, done: false, session: scanState.session + 1 });
   setHidden($('#scanCameraControls'), true);
   setHidden($('#scanTorch'), true);
@@ -3187,6 +3214,7 @@ async function openScanner() {
     await prepareDecoder();
     setScanStatus('請將框框只對準「左側 QR Code」（一次只掃一個）');
     scanState.raf = requestAnimationFrame(scanLoop);
+    markScanStage('cam-ready');
   } catch (e) {
     logError('scan', e);
     stopScanner();
@@ -3292,7 +3320,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (syncCh) syncCh.onmessage = () => { clearTimeout(syncTimer); syncTimer = setTimeout(reloadFromStorage, 300); };
   $('#btnScanInvoice').onclick = openScanner;
   $('#scanClose').onclick = $('#scanCancel').onclick = () => $('#scanDlg').close();
-  $('#scanDlg').addEventListener('close', stopScanner);
+  $('#scanDlg').addEventListener('close', () => { if (!scanState.done) markScanStage('user-close'); stopScanner(); });
+  setTimeout(reportScanCrash, 1200);   // 上次掃描若中途被關掉，這裡會提示停在哪一步
   $('#scanAuto').onchange = e => { try { localStorage.setItem('ledger_scan_auto', e.target.checked ? '1' : '0'); } catch (err) {} };
   $('#scanTorch').onclick = () => setScanTorch(!scanState.torchOn);
   $('#scanZoom').oninput = e => setScanZoom(e.target.value);
