@@ -2602,6 +2602,16 @@ const NativeBackup = {
     if (saved) { await markExport(); showToast('已匯出到「文件／' + NATIVE_DIR + '」：' + saved); }
     else showToast('寫入失敗，可改用分享', '分享', () => shareExportFile(file, '記帳備份 JSON'));
   },
+  // ---- 掃描追蹤：每一步都立刻交給原生層寫入檔案，即使 WebView 渲染程序當機也不會遺失 ----
+  trace(msg) {
+    try { nativePlugins().Filesystem.appendFile({ path: NATIVE_DIR + '/scan-trace.log', directory: 'DOCUMENTS', data: (Date.now() % 1e6) + ' ' + msg + '\n', encoding: 'utf8' }).catch(() => {}); } catch (e) {}
+  },
+  async traceReset() {
+    try { await nativePlugins().Filesystem.writeFile({ path: NATIVE_DIR + '/scan-trace.log', directory: 'DOCUMENTS', data: '0 --- 開始 ---\n', encoding: 'utf8', recursive: true }); } catch (e) {}
+  },
+  async traceRead() {
+    try { return (await nativePlugins().Filesystem.readFile({ path: NATIVE_DIR + '/scan-trace.log', directory: 'DOCUMENTS', encoding: 'utf8' })).data || ''; } catch (e) { return ''; }
+  },
   async share(file, title) {
     const { Filesystem, Share } = nativePlugins();
     if (!(await Share.canShare()).value) return false;
@@ -2952,6 +2962,7 @@ const hideScanBanner = () => { $('#scanBanner').style.display = 'none'; };
 // 每讀到一個 QR 就提示：震動；沒有 Vibration API 的裝置（iOS Safari）改用短促提示音
 let scanAudio = null;
 function prepareScanAudio() {
+  if (IS_NATIVE) return;
   if ('vibrate' in navigator) return;
   try {
     scanAudio = scanAudio || new (window.AudioContext || window.webkitAudioContext)();
@@ -2959,6 +2970,7 @@ function prepareScanAudio() {
   } catch (e) {}
 }
 function scanFeedback() {
+  if (IS_NATIVE) return;   // App（WebView）內不震動、不發聲，改用畫面上的提示橫幅
   if ('vibrate' in navigator) { navigator.vibrate(120); return; }
   if (!scanAudio) return;
   try {
@@ -2987,7 +2999,7 @@ function loadJsQR() {
 }
 async function prepareDecoder() {
   if (scanState.detector || window.jsQR) return;
-  if ('BarcodeDetector' in window) {
+  if (!IS_NATIVE && 'BarcodeDetector' in window) {   // App（WebView）內只用 jsQR，不用原生偵測
     try {
       if ((await BarcodeDetector.getSupportedFormats()).includes('qr_code')) { scanState.detector = new BarcodeDetector({ formats: ['qr_code'] }); return; }
     } catch (e) {}
@@ -3020,15 +3032,28 @@ const isGarbled = r => (r.rawText || '').includes('\uFFFD');
 const SCAN_STAGE_KEY = 'ledger_scan_stage';
 const SCAN_STAGE_LABELS = { open: '開啟相機', 'cam-ready': '相機運作中', left: '讀到左側 QR', finish: '結束掃描', stopped: '關閉相機之後', 'dlg-closed': '關閉掃描視窗之後', applying: '帶入表單' };
 const scanWait = ms => new Promise(r => setTimeout(r, ms));
-function markScanStage(stage) { try { localStorage.setItem(SCAN_STAGE_KEY, stage + '@' + Date.now()); } catch (e) {} }
-function reportScanCrash() {
+const scanTrace = m => { if (IS_NATIVE) NativeBackup.trace(m); };
+function markScanStage(stage) { scanTrace(stage); try { localStorage.setItem(SCAN_STAGE_KEY, stage + '@' + Date.now()); } catch (e) {} }
+async function reportScanCrash() {
   try {
-    const v = localStorage.getItem(SCAN_STAGE_KEY); if (!v) return;
-    localStorage.removeItem(SCAN_STAGE_KEY);
-    const stage = v.split('@')[0]; if (!SCAN_STAGE_LABELS[stage]) return;   // ok／user-close：正常結束
-    const msg = '上次掃描發票在「' + SCAN_STAGE_LABELS[stage] + '」這一步中斷了';
+    let label = '', trail = '';
+    if (IS_NATIVE) {   // App 內以原生層寫的追蹤檔為準（WebView 當機時 localStorage 可能來不及存）
+      const lines = (await NativeBackup.traceRead()).trim().split('\n').filter(Boolean);
+      const strip = l => l.replace(/^\d+ /, '');
+      const last = lines.length ? strip(lines[lines.length - 1]) : '';
+      localStorage.removeItem(SCAN_STAGE_KEY);
+      if (lines.length < 2 || ['ok', 'user-close', 'reported'].includes(last)) return;
+      trail = lines.slice(-6).map(strip).join(' → ');
+      NativeBackup.trace('reported');
+    } else {
+      const v = localStorage.getItem(SCAN_STAGE_KEY); if (!v) return;
+      localStorage.removeItem(SCAN_STAGE_KEY);
+      const stage = v.split('@')[0]; if (!SCAN_STAGE_LABELS[stage]) return;
+      label = SCAN_STAGE_LABELS[stage];
+    }
+    const msg = '上次掃描發票中斷了' + (label ? '（' + label + '）' : '') + (trail ? '。最後步驟：' + trail : '');
     logError('scan-interrupted', new Error(msg));
-    showToast(msg, null, null, 9000);
+    showToast(msg, null, null, 14000);
   } catch (e) {}
 }
 
@@ -3037,7 +3062,9 @@ function handleScanCodes(codes) {
   const preferredEnc = scanState.left ? scanState.left.enc : null;
   let gotNew = false;
   codes.forEach(c => {
+    scanTrace('parse');
     const r = parseInvoiceQR(c, preferredEnc);
+    scanTrace('parsed:' + (r ? r.kind : 'null'));
     if (!r) return;
     const cur = scanState[r.kind];
     if (!cur) {
@@ -3047,7 +3074,8 @@ function handleScanCodes(codes) {
       scanState[r.kind] = r;
     }
   });
-  if (gotNew) scanFeedback();
+  if (gotNew) { scanTrace('feedback'); scanFeedback(); }
+  scanTrace('banner');
   if (scanState.left && scanState.right) {
     showScanBanner('✅ 兩個 QR 都讀到了', '正在帶入發票資料…');
     setScanStatus('讀取完成，正在帶入…');
@@ -3174,14 +3202,17 @@ function scanLoop(ts) {
     }
     const jsQR = window.jsQR || await loadJsQR().catch(() => null);   // jsQR 解取景框局部影像，並提供原始 bytes 以正確解碼 Big5
     if (jsQR) {
+      scanTrace('jsqr');
       const img = ctx.getImageData(0, 0, cv.width, cv.height);
       const r = jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
+      scanTrace(r ? 'jsqr:hit' : 'jsqr:none');
       if (r) codes.push(r);
     }
 
     if (session !== scanState.session || scanState.done) return;   // 視窗已關閉或重新開啟，捨棄過期的結果
     if (codes.length) {
       handleScanCodes(codes);
+      scanTrace('handled');
       if (scanState.left && (scanState.right || Date.now() - scanState.leftAt > 1200)) finishScan();
     }
   })()
@@ -3190,6 +3221,7 @@ function scanLoop(ts) {
 }
 
 async function openScanner() {
+  if (IS_NATIVE) await NativeBackup.traceReset();
   markScanStage('open');
   Object.assign(scanState, { left: null, right: null, leftAt: 0, busy: false, last: 0, torchOn: false, done: false, session: scanState.session + 1 });
   setHidden($('#scanCameraControls'), true);
