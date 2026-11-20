@@ -3314,9 +3314,9 @@ document.addEventListener('DOMContentLoaded', () => {
    C.mount：觸發按鈕放進頁面自己的版面（沿用頁面的 class）；找不到容器才退回浮動 ⚙。
    C.th / C.thd：對話框配色（可寫 var(--頁面變數)）；C.thd 為深色時的覆蓋，C.dk 為判斷深色的選擇器。 */
 (function(){
-var C={"name": "智慧記帳本", "install": true, "ls": ["ledger", "accounting_", "smart_ledger_"], "idb": ["smart_ledger_db", "ledger"], "cache": ["ledger-"], "warn": "記帳／紀錄資料只存在這個裝置，清除前請先匯出備份。", "mount": {"sel": "#btnBackup", "pos": "after", "cls": "p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-lg leading-none", "label": "📲", "title": "App 安裝與資料管理"}, "th": {"bg": "#fff", "fg": "#0f172a", "mu": "#64748b", "bd": "#e2e8f0", "ac": "var(--theme-accent,#0d9488)", "acfg": "#fff", "dan": "#dc2626", "nb": "#f1f5f9", "r": "16px"}, "thd": {"bg": "#0f172a", "fg": "#e2e8f0", "mu": "#94a3b8", "bd": "#1e293b", "nb": "#1e293b", "dan": "#f87171"}};
+var C={"name": "智慧記帳本", "install": true, "ls": ["ledger", "accounting_", "smart_ledger_"], "idb": ["smart_ledger_db", "ledger"], "cache": ["ledger-"], "warn": "記帳／紀錄資料只存在這個裝置，清除前請先匯出備份。", "inst": {"label": "安裝 App", "cls": "rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition", "style": "padding:6px 12px;border:0;cursor:pointer"}, "mount": {"sel": "#btnBackup", "pos": "after", "cls": "p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-lg leading-none", "label": "📲", "title": "App 安裝與資料管理"}, "th": {"bg": "#fff", "fg": "#0f172a", "mu": "#64748b", "bd": "#e2e8f0", "ac": "var(--theme-accent,#0d9488)", "acfg": "#fff", "dan": "#dc2626", "nb": "#f1f5f9", "r": "16px"}, "thd": {"bg": "#0f172a", "fg": "#e2e8f0", "mu": "#94a3b8", "bd": "#1e293b", "nb": "#1e293b", "dan": "#f87171"}};
 if(window.PWAManage)return;
-var dip=null,host,sr,trig,wiping=false;
+var dip=null,host,sr,trig,inst,mlOrig,wiping=false;
 var sa=function(){try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true}catch(e){return false}};
 var ios=function(){return /iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)};
 var cap=function(){try{return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())}catch(e){return false}};
@@ -3330,6 +3330,7 @@ function upd(){
   if(!sr)return;
   var b=q('#i'),t=q('#t'),s=sa();
   b.hidden=!(C.install&&dip&&!s);
+  if(inst){var v=!!(C.install&&dip&&!s);inst.hidden=!v;if(trig&&mlOrig==='auto')trig.style.marginLeft=v?'0':'auto'}
   t.textContent=cap()?'App 版本：要移除請到系統設定的應用程式':s?'已安裝（目前以 App 模式開啟）':!C.install?'':dip?'可安裝到桌面／主畫面':ios()?'iPhone／iPad：Safari 分享 → 加入主畫面':'可用瀏覽器選單的「安裝應用程式」（若已安裝，可能偵測不到）';
 }
 function theme(){
@@ -3365,6 +3366,14 @@ function build(){
     trig.textContent=m.label||'⚙';trig.title=m.title||'App 安裝與資料管理';trig.setAttribute('aria-label',m.title||'App 安裝與資料管理');
     trig.onclick=open;
     if(m.pos==='after')at.after(trig);else if(m.pos==='before')at.before(trig);else at.appendChild(trig);
+    mlOrig=trig.style.marginLeft;
+    if(C.inst){
+      inst=document.createElement('button');inst.type='button';inst.id='pwa-install-btn';inst.hidden=true;
+      inst.className=C.inst.cls||'';if(C.inst.style)inst.style.cssText=C.inst.style;
+      inst.textContent=C.inst.label||'安裝 App';
+      inst.onclick=function(){if(!dip)return;try{dip.prompt();dip.userChoice&&dip.userChoice.then(function(){dip=null;upd()},function(){})}catch(e){}};
+      trig.before(inst);
+    }
   }
   q('#c').onclick=close;
   q('#m').onclick=function(e){if(e.target.id==='m')close()};
